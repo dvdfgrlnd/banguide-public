@@ -291,6 +291,14 @@
       }
 
       panel.style.setProperty('--header-panel-shift-x', `${Math.round(shiftX)}px`);
+
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      const navClearance = holeNav && !holeNav.hasAttribute('hidden')
+        ? Math.ceil(holeNav.getBoundingClientRect().height)
+        : 0;
+      const bottomReservedSpace = viewportGutter + navClearance;
+      const availableHeight = Math.max(220, Math.floor(viewportHeight - panelRect.top - bottomReservedSpace));
+      panel.style.setProperty('--header-panel-max-height', `${availableHeight}px`);
     }
 
     function positionClubSettingsPanel() {
@@ -477,19 +485,7 @@
             .join('');
 
           holeDetailsContent.innerHTML = `
-            <div class="hole-info-panel__section">
-              <div class="hole-summary" aria-label="Hole summary">
-                <div class="hole-summary__chip">
-                  <span class="hole-summary__label">Par</span>
-                  <span class="hole-summary__value">${hole.par}</span>
-                </div>
-                <div class="hole-summary__chip">
-                  <span class="hole-summary__label">Stroke index</span>
-                  <span class="hole-summary__value">${hole.strokeIndex}</span>
-                </div>
-              </div>
-            </div>
-            <div class="hole-info-panel__section">
+            <div class="hole-info-panel__section hole-info-panel__section--overview">
               <p class="hole-info-panel__heading">Tee distances</p>
               <div class="tee-pill-row">
                 ${teePills}
@@ -558,7 +554,10 @@
         document.title = `Hole ${hole.hole} — ${courseLabel} — BanGuide`;
 
         if (holeHeaderInfo) {
-          holeHeaderInfo.textContent = `${courseLabel} · Hole ${hole.hole}`;
+          holeHeaderInfo.innerHTML = `
+            <span class="hole-page-header__title">${escapeHtml(courseLabel)} · Hole ${hole.hole}</span>
+            <span class="hole-page-header__meta">Par ${escapeHtml(hole.par)} · SI ${escapeHtml(hole.strokeIndex)}</span>
+          `;
           holeHeaderInfo.removeAttribute('hidden');
         }
 
@@ -848,6 +847,9 @@
             map: leafletMap,
             getClubs: loadClubs,
             shouldHandleTap: () => {
+              // Ignore the synthetic click that can follow a long-press
+              // used for measurement point placement.
+              if (measurement?.consumeSuppressedTap?.()) return false;
               // Disable overlay taps if currently calibrating
               if (isCalibrating) return false;
               // Disable overlay for uncalibrated imported maps

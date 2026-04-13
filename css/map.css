@@ -144,45 +144,85 @@
 }
 
 .hole-info-panel__content {
-  padding: var(--space-md);
+  padding: clamp(8px, 1.8vh, var(--space-md));
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.6vh, var(--space-md));
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
 }
 
 .hole-info-panel .hole-summary {
+  gap: clamp(6px, 1.2vh, var(--space-sm));
   flex-wrap: wrap;
 }
 
 .hole-info-panel .hole-summary__chip {
   min-width: 0;
   flex: 1 1 120px;
+  padding: clamp(4px, 1vh, 8px) clamp(8px, 1.8vw, 12px);
+}
+
+.hole-info-panel .hole-summary__label {
+  font-size: clamp(10px, 1.5vh, 12px);
+}
+
+.hole-info-panel .hole-summary__value {
+  font-size: clamp(18px, 2.6vh, 24px);
 }
 
 .hole-info-panel__section + .hole-info-panel__section {
-  margin-top: var(--space-md);
-  padding-top: var(--space-md);
+  margin-top: clamp(8px, 1.6vh, var(--space-md));
+  padding-top: clamp(8px, 1.6vh, var(--space-md));
   border-top: 1px solid var(--color-border);
+}
+
+.hole-info-panel__section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hole-info-panel__section--overview {
+  gap: clamp(6px, 1.2vh, var(--space-sm));
+}
+
+.hole-info-panel__section--overview .hole-summary {
+  margin-bottom: 0;
+}
+
+.hole-info-panel__section--overview .hole-info-panel__heading {
+  margin-bottom: 0;
 }
 
 .hole-info-panel__heading {
   font-size: var(--font-size-sm);
   color: var(--color-muted);
-  margin-bottom: var(--space-sm);
+  margin-bottom: clamp(6px, 1.2vh, var(--space-sm));
 }
 
 .hole-info-panel .tee-pill-row {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin: 0;
+  gap: clamp(4px, 0.9vh, var(--space-sm));
 }
 
 .hole-info-panel .tee-pill {
   min-width: 0;
-  flex: 1 1 96px;
+  flex: 1 1 0;
+  padding: clamp(4px, 1.1vh, 10px) clamp(4px, 1.8vw, 12px);
+  font-size: clamp(10px, 1.9vh, 14px);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .scorecard-toolbar {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-sm);
+  gap: clamp(6px, 1.2vh, var(--space-sm));
 }
 
 .scorecard-toolbar__meta {
@@ -191,8 +231,8 @@
 }
 
 .scorecard-toolbar__button {
-  min-height: var(--min-touch);
-  padding: 0 14px;
+  min-height: clamp(36px, 5.2vh, var(--min-touch));
+  padding: 0 clamp(10px, 2.2vw, 14px);
   border: 1px solid var(--color-accent);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
@@ -205,7 +245,7 @@
 
 .scorecard-toolbar__label {
   display: block;
-  margin-top: var(--space-sm);
+  margin-top: clamp(6px, 1.2vh, var(--space-sm));
   margin-bottom: 6px;
   font-size: var(--font-size-sm);
   color: var(--color-muted);
@@ -235,7 +275,7 @@
   display: grid;
   grid-template-columns: auto auto minmax(48px, 1fr) auto;
   align-items: center;
-  gap: var(--space-sm);
+  gap: clamp(6px, 1.1vh, var(--space-sm));
 }
 
 .scorecard-stepper__hole {
@@ -245,9 +285,9 @@
 }
 
 .scorecard-stepper__button {
-  width: var(--min-touch);
-  min-width: var(--min-touch);
-  height: var(--min-touch);
+  width: clamp(36px, 5.2vh, var(--min-touch));
+  min-width: clamp(36px, 5.2vh, var(--min-touch));
+  height: clamp(36px, 5.2vh, var(--min-touch));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
@@ -264,7 +304,7 @@
 }
 
 .scorecard-stepper__value {
-  min-height: var(--min-touch);
+  min-height: clamp(36px, 5.2vh, var(--min-touch));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -294,31 +334,52 @@ button.scorecard-stepper__value {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  min-width: 0;
 }
 
 .scorecard-table-wrap {
+  --scorecard-label-col-flex: 1.8;
+  --scorecard-hole-col-flex: 1;
+  display: flex;
+  min-width: 0;
   overflow-x: auto;
 }
 
 .scorecard-table {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 12px;
+  font-size: clamp(9px, 1.7vh, 12px);
+}
+
+.scorecard-table thead,
+.scorecard-table tbody {
+  display: block;
+}
+
+.scorecard-table tr {
+  display: flex;
 }
 
 .scorecard-table th,
 .scorecard-table td {
-  min-width: 28px;
-  padding: 6px 4px;
+  flex: var(--scorecard-hole-col-flex) 1 0;
+  min-width: 0;
+  padding: clamp(4px, 1.4vw, 6px) clamp(2px, 1vw, 4px);
   border: 1px solid var(--color-border);
   text-align: center;
   background: var(--color-surface);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .scorecard-table th:first-child,
 .scorecard-table td:first-child {
-  width: 48px;
+  flex: var(--scorecard-label-col-flex) 1 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .scorecard-table th {
@@ -340,6 +401,12 @@ button.scorecard-stepper__value {
 }
 
 @media (max-width: 420px) {
+  .hole-info-panel .tee-pill {
+    flex-basis: clamp(58px, 22vw, 80px);
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+
   .scorecard-stepper {
     grid-template-columns: 1fr auto minmax(42px, auto) auto;
   }
@@ -352,6 +419,73 @@ button.scorecard-stepper__value {
   .scorecard-table td {
     padding: 5px 3px;
     font-size: 11px;
+  }
+
+  .scorecard-table-wrap {
+    --scorecard-label-col-flex: 1.45;
+  }
+}
+
+@media (max-height: 760px) {
+  .hole-info-panel .hole-summary__chip {
+    padding: 4px 6px;
+  }
+
+  .hole-info-panel .hole-summary__label {
+    font-size: 10px;
+  }
+
+  .hole-info-panel .hole-summary__value {
+    font-size: 18px;
+  }
+
+  .hole-info-panel__content {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .hole-info-panel__section + .hole-info-panel__section {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .hole-info-panel .tee-pill {
+    padding: 4px 5px;
+    font-size: 10px;
+  }
+
+  .scorecard-table {
+    font-size: 9px;
+  }
+
+  .scorecard-table th,
+  .scorecard-table td {
+    padding: 3px 2px;
+  }
+}
+
+@media (max-width: 360px) {
+  .hole-info-panel .tee-pill-row {
+    gap: 6px;
+  }
+
+  .hole-info-panel .tee-pill {
+    flex-basis: clamp(52px, 20vw, 70px);
+    padding: 6px 6px;
+    font-size: 11px;
+  }
+
+  .scorecard-table {
+    font-size: 10px;
+  }
+
+  .scorecard-table th,
+  .scorecard-table td {
+    padding: 4px 2px;
+  }
+
+  .scorecard-table-wrap {
+    --scorecard-label-col-flex: 1.2;
   }
 }
 
