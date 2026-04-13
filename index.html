@@ -26,8 +26,29 @@
         style="display: none;"
         accept=".json,.jpg,.jpeg,.png"
       />
+      <input
+        type="file"
+        id="courseArchiveInput"
+        style="display: none;"
+        accept=".tar,.tar.gz,.tgz,application/gzip,application/x-gzip,application/x-tar"
+      />
       <button id="importBtn" class="import-button">Import Course Package</button>
       <div id="importStatus" class="import-status" style="display: none;"></div>
+
+      <div id="importModePanel" class="import-name-panel" hidden>
+        <button type="button" class="import-name-panel__backdrop" data-import-mode-cancel aria-label="Close import type panel"></button>
+        <section class="import-name-panel__dialog" role="dialog" aria-modal="true" aria-labelledby="importModeTitle">
+          <h2 id="importModeTitle" class="import-name-panel__title">Choose import type</h2>
+          <p class="import-name-panel__body">Import a course folder or a compressed tar package.</p>
+          <div class="import-name-form__actions">
+            <button type="button" id="importModeFolder" class="import-name-form__button import-name-form__button--secondary">Folder</button>
+            <button type="button" id="importModeArchive" class="import-name-form__button import-name-form__button--primary">.tar/.tar.gz</button>
+          </div>
+          <div class="import-name-form__actions" style="margin-top: 0.5rem;">
+            <button type="button" class="import-name-form__button import-name-form__button--secondary" data-import-mode-cancel>Cancel</button>
+          </div>
+        </section>
+      </div>
 
       <div id="importNamePanel" class="import-name-panel" hidden>
         <button type="button" class="import-name-panel__backdrop" data-import-cancel aria-label="Close course name panel"></button>
@@ -56,7 +77,12 @@
     const importSection = document.getElementById('importSection');
     const importBtn = document.getElementById('importBtn');
     const importInput = document.getElementById('courseImportInput');
+    const importArchiveInput = document.getElementById('courseArchiveInput');
     const importStatus = document.getElementById('importStatus');
+    const importModePanel = document.getElementById('importModePanel');
+    const importModeFolderBtn = document.getElementById('importModeFolder');
+    const importModeArchiveBtn = document.getElementById('importModeArchive');
+    const importModeCancelButtons = document.querySelectorAll('[data-import-mode-cancel]');
     const importNamePanel = document.getElementById('importNamePanel');
     const importNameForm = document.getElementById('importNameForm');
     const importCourseNameInput = document.getElementById('importCourseName');
@@ -65,10 +91,58 @@
     let pendingImportFiles = null;
     let isDeletingCourse = false;
 
+    function isArchiveSelection(files) {
+      if (!files || files.length !== 1) {
+        return false;
+      }
+
+      const fileName = String(files[0]?.name || '').toLowerCase();
+      return fileName.endsWith('.tar') || fileName.endsWith('.tar.gz') || fileName.endsWith('.tgz');
+    }
+
+    function openImportModePanel() {
+      importModePanel.hidden = false;
+    }
+
+    function closeImportModePanel() {
+      importModePanel.hidden = true;
+    }
+
+    function handleImportSelection(files) {
+      if (!files || files.length === 0) {
+        return;
+      }
+
+      openImportNamePanel(files);
+    }
+
     function formatSuggestedCourseName(files) {
       const firstFile = files?.[0];
       const relativePath = firstFile?.webkitRelativePath || '';
       const folderName = relativePath.split('/')[0] || '';
+      const archiveName = firstFile?.name || '';
+
+      if (!folderName && archiveName) {
+        const withoutArchiveExt = archiveName
+          .replace(/\.tar\.gz$/i, '')
+          .replace(/\.tgz$/i, '')
+          .replace(/\.tar$/i, '');
+
+        if (withoutArchiveExt.trim()) {
+          return withoutArchiveExt
+            .replace(/[-_]+/g, ' ')
+            .trim()
+            .normalize('NFC')
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((word) => {
+              const firstChar = Array.from(word)[0] || '';
+              const firstCharLength = firstChar.length;
+              return firstChar.toLocaleUpperCase() + word.slice(firstCharLength);
+            })
+            .join(' ');
+        }
+      }
 
       if (!folderName) {
         return 'Imported Course';
@@ -102,6 +176,7 @@
       if (clearFiles) {
         pendingImportFiles = null;
         importInput.value = '';
+        importArchiveInput.value = '';
       }
     }
 
@@ -129,7 +204,7 @@
                 <li>A <strong>holes.json</strong> file with hole metadata</li>
                 <li>Course images (<strong>hole-1.jpg</strong>, <strong>hole-2.jpg</strong>, etc.)</li>
               </ul>
-              <p>Tap "Import Course Package" below to get started.</p>
+              <p>Import either a course folder or a <strong>.tar.gz</strong> package to get started.</p>
             </li>
           `;
           importSection.style.display = 'block';
@@ -195,7 +270,23 @@
 
     // Set up import button handler
     importBtn.addEventListener('click', () => {
+      openImportModePanel();
+    });
+
+    importModeFolderBtn.addEventListener('click', () => {
+      closeImportModePanel();
       importInput.click();
+    });
+
+    importModeArchiveBtn.addEventListener('click', () => {
+      closeImportModePanel();
+      importArchiveInput.click();
+    });
+
+    importModeCancelButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        closeImportModePanel();
+      });
     });
 
     courseList.addEventListener('click', async (event) => {
@@ -211,9 +302,12 @@
     // Set up import file handler
     importInput.addEventListener('change', (event) => {
       const files = event.target.files;
-      if (files.length === 0) return;
+      handleImportSelection(files);
+    });
 
-      openImportNamePanel(files);
+    importArchiveInput.addEventListener('change', (event) => {
+      const files = event.target.files;
+      handleImportSelection(files);
     });
 
     importCancelButtons.forEach((button) => {
@@ -231,9 +325,10 @@
       }
 
       const courseName = importCourseNameInput.value.trim() || 'Imported Course';
+      const isArchiveImport = isArchiveSelection(pendingImportFiles);
 
       try {
-        showStatus('Importing course package…', 'loading');
+        showStatus(isArchiveImport ? 'Importing archive package…' : 'Importing folder package…', 'loading');
 
         closeImportNamePanel();
 
@@ -246,12 +341,14 @@
           hideStatus();
           pendingImportFiles = null;
           importInput.value = '';
+          importArchiveInput.value = '';
         }, 1500);
       } catch (error) {
         console.error('Import failed:', error);
         showStatus(`✗ Import failed: ${error.message}`, 'error');
         pendingImportFiles = null;
         importInput.value = '';
+        importArchiveInput.value = '';
         closeImportNamePanel();
       }
     });

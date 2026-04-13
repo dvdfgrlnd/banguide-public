@@ -18,7 +18,28 @@ function clearLeafletInstance(container) {
   if (existingMap && typeof existingMap.remove === 'function') {
     existingMap.remove();
   }
+  if (typeof container.__holeInteractionGuardsCleanup === 'function') {
+    container.__holeInteractionGuardsCleanup();
+  }
   container.__holeLeafletMap = null;
+  container.__holeInteractionGuardsCleanup = null;
+}
+
+function installInteractionGuards(container) {
+  const suppressBrowserGestureUI = (event) => {
+    event.preventDefault();
+  };
+
+  const events = ['contextmenu', 'selectstart', 'dragstart'];
+  events.forEach((eventName) => {
+    container.addEventListener(eventName, suppressBrowserGestureUI);
+  });
+
+  return () => {
+    events.forEach((eventName) => {
+      container.removeEventListener(eventName, suppressBrowserGestureUI);
+    });
+  };
 }
 
 function applyHoleBoundsConstraints(map, bounds, { resetView = false } = {}) {
@@ -56,6 +77,7 @@ export function initHoleMap({ container, hole, getmetersPerPixel } = {}) {
   }
 
   clearLeafletInstance(container);
+  container.__holeInteractionGuardsCleanup = installInteractionGuards(container);
 
   if (!hole || !hole.map) {
     renderUnavailable(container);
@@ -108,10 +130,17 @@ export function initHoleMap({ container, hole, getmetersPerPixel } = {}) {
     map.invalidateSize();
     applyHoleBoundsConstraints(map, bounds);
   });
+  const cleanupInteractionGuards = () => {
+    if (typeof container.__holeInteractionGuardsCleanup === 'function') {
+      container.__holeInteractionGuardsCleanup();
+    }
+    container.__holeInteractionGuardsCleanup = null;
+  };
 
   window.addEventListener('resize', handleResize);
   map.on('unload', () => {
     window.removeEventListener('resize', handleResize);
+    cleanupInteractionGuards();
   });
 
   overlay.once('load', () => {

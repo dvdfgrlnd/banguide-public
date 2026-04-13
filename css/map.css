@@ -15,10 +15,22 @@
   background-color: #ffffff;
   margin-bottom: 0;
   position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .hole-map.leaflet-container {
   background: #ffffff;
+}
+
+.hole-map img,
+.hole-map .leaflet-pane,
+.hole-map .leaflet-pane * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
 }
 
 .hole-map--loading::after {

@@ -1,7 +1,7 @@
 const DEV_MODE = false; // Set to false for production
 
-const APP_CACHE = 'banguide-v9';
-const RUNTIME_CACHE = 'banguide-runtime-v9';
+const APP_CACHE = 'banguide-v11';
+const RUNTIME_CACHE = 'banguide-runtime-v11';
 
 const SHELL_ASSETS = [
   './',
@@ -19,6 +19,7 @@ const SHELL_ASSETS = [
   './js/clubs.js',
   './js/offline.js',
   './js/imported-data.js',
+  './js/archive-import.js',
   './js/measurement.js',
   './js/scorecards.js'
 ];

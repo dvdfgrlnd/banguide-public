@@ -6,11 +6,17 @@
  * Supports 1-4+ tee mapping with priority: white > yellow > blue > red
  */
 
+import { expandImportFiles } from './archive-import.js';
+
 const DB_NAME = 'banguide-imported';
 const DB_VERSION = 1;
 const COURSES_STORE = 'courses';
 const HOLES_STORE = 'holes';
 const IMAGES_STORE = 'images';
+
+function basename(fileName) {
+  return String(fileName || '').split('/').pop() || '';
+}
 
 /**
  * Initialize IndexedDB database if not exists
@@ -119,7 +125,7 @@ async function parseHolesJson(files) {
   let holesJsonFile = null;
   
   for (let file of files) {
-    if (file.name === 'holes.json') {
+    if (basename(file.__archivePath || file.name) === 'holes.json') {
       holesJsonFile = file;
       break;
     }
@@ -147,10 +153,10 @@ async function parseHolesJson(files) {
  */
 function extractImages(files) {
   const imagesByHole = {};
-  const imagePattern = /^hole_(\d+)\.(jpg|jpeg|png)$/i;
+  const imagePattern = /^hole[-_](\d+)\.(jpg|jpeg|png)$/i;
   
   for (let file of files) {
-    const match = file.name.match(imagePattern);
+    const match = basename(file.__archivePath || file.name).match(imagePattern);
     if (match) {
       const holeNum = parseInt(match[1]);
       imagesByHole[holeNum] = file;
@@ -169,7 +175,7 @@ async function parseCalibrationJson(files) {
   let calibrationJsonFile = null;
   
   for (let file of files) {
-    if (file.name === 'calibration.json') {
+    if (basename(file.__archivePath || file.name) === 'calibration.json') {
       calibrationJsonFile = file;
       break;
     }
@@ -222,17 +228,22 @@ export async function importAndPersistCourse(files, courseId, courseName) {
   if (!files || files.length === 0) {
     throw new Error('No files selected');
   }
+
+  const importFiles = await expandImportFiles(files);
+  if (!importFiles || importFiles.length === 0) {
+    throw new Error('No files found in import package');
+  }
   
   const db = await initDB();
   
   // Parse holes.json
-  const sourceHoles = await parseHolesJson(files);
+  const sourceHoles = await parseHolesJson(importFiles);
   
   // Extract image files
-  const imagesByHole = extractImages(files);
+  const imagesByHole = extractImages(importFiles);
   
   // Parse calibration.json (optional)
-  const calibrationByHole = await parseCalibrationJson(files);
+  const calibrationByHole = await parseCalibrationJson(importFiles);
   
   // Validate package has holes and at least one hole has an image
   if (sourceHoles.length === 0) {
