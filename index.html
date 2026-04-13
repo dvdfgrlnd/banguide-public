@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BanGuide — Stockholm Golf Courses</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <header class="page-header">
+    <h1 class="page-header-title">BanGuide</h1>
+    <p class="page-header-subtitle" id="subtitle">Stockholm golf courses · …</p>
+  </header>
+
+  <main class="page">
+    <ul class="course-list" id="courseList"></ul>
+    
+    <!-- Import controls -->
+    <div class="import-section" id="importSection" style="display: none;">
+      <input 
+        type="file" 
+        id="courseImportInput" 
+        webkitdirectory 
+        multiple 
+        style="display: none;"
+        accept=".json,.jpg,.jpeg,.png"
+      />
+      <button id="importBtn" class="import-button">Import Course Package</button>
+      <div id="importStatus" class="import-status" style="display: none;"></div>
+
+      <div id="importNamePanel" class="import-name-panel" hidden>
+        <button type="button" class="import-name-panel__backdrop" data-import-cancel aria-label="Close course name panel"></button>
+        <section class="import-name-panel__dialog" role="dialog" aria-modal="true" aria-labelledby="importNameTitle">
+          <h2 id="importNameTitle" class="import-name-panel__title">Name this course</h2>
+          <p class="import-name-panel__body">Choose a display name before importing files.</p>
+          <form id="importNameForm" class="import-name-form">
+            <label for="importCourseName" class="import-name-form__label">Course name</label>
+            <input id="importCourseName" class="import-name-form__input" type="text" maxlength="80" required />
+            <div class="import-name-form__actions">
+              <button type="button" id="importNameCancel" class="import-name-form__button import-name-form__button--secondary" data-import-cancel>Cancel</button>
+              <button type="submit" id="importNameConfirm" class="import-name-form__button import-name-form__button--primary">Import Course</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { loadCourses, renderCourseCount, createCourseCard, deleteCourse, importCourse } from './js/courses.js';
+    import { registerServiceWorker } from './js/offline.js';
+
+    const courseList = document.getElementById('courseList');
+    const subtitle = document.getElementById('subtitle');
+    const importSection = document.getElementById('importSection');
+    const importBtn = document.getElementById('importBtn');
+    const importInput = document.getElementById('courseImportInput');
+    const importStatus = document.getElementById('importStatus');
+    const importNamePanel = document.getElementById('importNamePanel');
+    const importNameForm = document.getElementById('importNameForm');
+    const importCourseNameInput = document.getElementById('importCourseName');
+    const importCancelButtons = document.querySelectorAll('[data-import-cancel]');
+
+    let pendingImportFiles = null;
+    let isDeletingCourse = false;
+
+    function formatSuggestedCourseName(files) {
+      const firstFile = files?.[0];
+      const relativePath = firstFile?.webkitRelativePath || '';
+      const folderName = relativePath.split('/')[0] || '';
+
+      if (!folderName) {
+        return 'Imported Course';
+      }
+
+      const readableName = folderName.replace(/[-_]+/g, ' ').trim().normalize('NFC');
+      if (!readableName) {
+        return 'Imported Course';
+      }
+
+      const words = readableName.split(/\s+/).filter(Boolean);
+      return words
+        .map((word) => {
+          const firstChar = Array.from(word)[0] || '';
+          const firstCharLength = firstChar.length;
+          return firstChar.toLocaleUpperCase() + word.slice(firstCharLength);
+        })
+        .join(' ');
+    }
+
+    function openImportNamePanel(files) {
+      pendingImportFiles = files;
+      importCourseNameInput.value = formatSuggestedCourseName(files);
+      importNamePanel.hidden = false;
+      importCourseNameInput.focus();
+      importCourseNameInput.select();
+    }
+
+    function closeImportNamePanel({ clearFiles } = { clearFiles: false }) {
+      importNamePanel.hidden = true;
+      if (clearFiles) {
+        pendingImportFiles = null;
+        importInput.value = '';
+      }
+    }
+
+    function showStatus(message, variant) {
+      importStatus.style.display = 'block';
+      importStatus.textContent = message;
+      importStatus.className = `import-status import-status--${variant}`;
+    }
+
+    function hideStatus() {
+      importStatus.style.display = 'none';
+    }
+
+    async function refreshCourseList() {
+      try {
+        const courses = await loadCourses();
+
+        if (courses.length === 0) {
+          // Empty state with import guidance
+          courseList.innerHTML = `
+            <li class="empty-state">
+              <h2 class="empty-heading">No courses yet</h2>
+              <p>Get started by importing a course package. You'll need:</p>
+              <ul>
+                <li>A <strong>holes.json</strong> file with hole metadata</li>
+                <li>Course images (<strong>hole-1.jpg</strong>, <strong>hole-2.jpg</strong>, etc.)</li>
+              </ul>
+              <p>Tap "Import Course Package" below to get started.</p>
+            </li>
+          `;
+          importSection.style.display = 'block';
+          subtitle.textContent = renderCourseCount(0);
+        } else {
+          courseList.innerHTML = '';
+          courses.forEach(course => {
+            const item = document.createElement('li');
+            item.appendChild(createCourseCard(course));
+            courseList.appendChild(item);
+          });
+          subtitle.textContent = renderCourseCount(courses.length);
+          importSection.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error loading courses:', error);
+        courseList.innerHTML = `
+          <li class="error-state">
+            <h2 class="error-heading">Couldn't load courses</h2>
+            <p>Check your connection and try again.</p>
+          </li>
+        `;
+        subtitle.textContent = renderCourseCount(0);
+        importSection.style.display = 'block';
+      }
+    }
+
+    async function handleCourseDelete(button) {
+      if (isDeletingCourse) {
+        return;
+      }
+
+      const courseId = button.dataset.courseId;
+      const courseName = button.dataset.courseName || 'this course';
+
+      if (!courseId) {
+        return;
+      }
+
+      const confirmed = window.confirm(`Delete "${courseName}"? This removes its holes and images from this device.`);
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        isDeletingCourse = true;
+        showStatus(`Deleting "${courseName}"…`, 'loading');
+        await deleteCourse(courseId);
+        await refreshCourseList();
+        showStatus(`Deleted "${courseName}"`, 'success');
+        setTimeout(() => {
+          if (!isDeletingCourse) {
+            hideStatus();
+          }
+        }, 1500);
+      } catch (error) {
+        console.error('Delete failed:', error);
+        showStatus(`Delete failed: ${error.message}`, 'error');
+      } finally {
+        isDeletingCourse = false;
+      }
+    }
+
+    // Set up import button handler
+    importBtn.addEventListener('click', () => {
+      importInput.click();
+    });
+
+    courseList.addEventListener('click', async (event) => {
+      const deleteButton = event.target.closest('[data-action="delete-course"]');
+      if (!deleteButton) {
+        return;
+      }
+
+      event.preventDefault();
+      await handleCourseDelete(deleteButton);
+    });
+
+    // Set up import file handler
+    importInput.addEventListener('change', (event) => {
+      const files = event.target.files;
+      if (files.length === 0) return;
+
+      openImportNamePanel(files);
+    });
+
+    importCancelButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        closeImportNamePanel({ clearFiles: true });
+      });
+    });
+
+    importNameForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (!pendingImportFiles || pendingImportFiles.length === 0) {
+        closeImportNamePanel({ clearFiles: true });
+        return;
+      }
+
+      const courseName = importCourseNameInput.value.trim() || 'Imported Course';
+
+      try {
+        showStatus('Importing course package…', 'loading');
+
+        closeImportNamePanel();
+
+        const result = await importCourse(pendingImportFiles, courseName);
+
+        showStatus(`✓ Imported "${result.courseName}" with ${result.holeCount} holes`, 'success');
+
+        setTimeout(() => {
+          refreshCourseList();
+          hideStatus();
+          pendingImportFiles = null;
+          importInput.value = '';
+        }, 1500);
+      } catch (error) {
+        console.error('Import failed:', error);
+        showStatus(`✗ Import failed: ${error.message}`, 'error');
+        pendingImportFiles = null;
+        importInput.value = '';
+        closeImportNamePanel();
+      }
+    });
+
+    registerServiceWorker();
+
+    // Initialize on page load
+    refreshCourseList();
+  </script>
+</body>
+</html>

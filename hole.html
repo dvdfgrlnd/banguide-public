@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hole - BanGuide</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/map.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body class="hole-page is-entering">
+  <header class="page-header">
+    <div class="page-header__actions page-header__actions--compact page-header__actions--hole">
+      <a href="index.html" id="backLink" class="back-nav">← All holes</a>
+      <div id="holeHeaderInfo" class="hole-page-header__info" hidden></div>
+      <div class="page-header__tools page-header__tools--hole">
+        <div class="header-settings" id="clubSettings" hidden>
+          <button id="clubSettingsToggle" class="header-settings__button" type="button" aria-label="Club settings" aria-expanded="false" aria-controls="clubSettingsPanel">
+            <span aria-hidden="true">⚙</span>
+          </button>
+          <button id="clubSettingsBackdrop" class="club-settings__backdrop" type="button" aria-label="Close club settings" hidden></button>
+          <div class="club-settings__panel" id="clubSettingsPanel" hidden>
+            <div class="club-settings__list" id="clubList" aria-live="polite"></div>
+            <form class="club-add-form" id="addClubForm" novalidate>
+              <input type="text" id="newClubName" class="club-input" placeholder="Club (e.g. 7-iron)" maxlength="20" autocomplete="off">
+              <input type="number" id="newClubmeters" class="club-input club-input--meters" placeholder="meters" min="1" max="366" autocomplete="off">
+              <button type="submit" class="club-add-btn">Add</button>
+            </form>
+            <section class="map-calibration" aria-label="Map scale calibration">
+              <button id="startCalibrationBtn" class="map-calibration__start" type="button">Calibrate map scale</button>
+              <div id="mapCalibrationPanel" class="map-calibration__panel" hidden>
+                <p id="mapCalibrationStatus" class="map-calibration__status">Using course map scale.</p>
+                <p id="mapCalibrationHint" class="map-calibration__hint">Tap two points on the map, then enter the known distance.</p>
+                <label class="map-calibration__label" for="mapCalibrationDistance">Distance between points (m)</label>
+                <input type="number" id="mapCalibrationDistance" class="club-input" min="0.1" step="0.1" inputmode="decimal" placeholder="e.g. 120">
+                <div class="map-calibration__actions">
+                  <button id="applyCalibrationBtn" class="map-calibration__apply" type="button" disabled>Save scale</button>
+                  <button id="cancelCalibrationBtn" class="map-calibration__cancel" type="button">Cancel</button>
+                  <button id="resetCalibrationBtn" class="map-calibration__reset" type="button">Reset saved scale</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+        <div class="header-settings" id="holeDetailsPanelRoot" hidden>
+          <button id="holeDetailsToggle" class="header-settings__button" type="button" aria-label="Hole details" aria-expanded="false" aria-controls="holeDetailsPanel">
+            <span aria-hidden="true">ℹ</span>
+          </button>
+          <button id="holeDetailsBackdrop" class="club-settings__backdrop" type="button" aria-label="Close hole details" hidden></button>
+          <div class="club-settings__panel hole-info-panel" id="holeDetailsPanel" hidden>
+            <div class="hole-info-panel__content" id="holeDetailsContent" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="page" id="holeContent" style="padding-bottom: 64px">
+    <p class="state-loading">Loading hole…</p>
+  </main>
+
+  <nav class="hole-nav-bar" id="holeNav" aria-label="Hole navigation" hidden>
+    <a href="#" id="prevHole" class="hole-nav-btn hole-nav-btn--prev">← Hole</a>
+    <a href="#" id="nextHole" class="hole-nav-btn hole-nav-btn--next">Hole →</a>
+  </nav>
+
+  <script type="module">
+    import { loadCourses, getCourseById } from './js/courses.js';
+    import { loadHoles, getHoleData, buildHoleHref } from './js/holes.js';
+    import { initHoleMap } from './js/map.js';
+    import { loadClubs, addClub, updateClub, deleteClub } from './js/clubs.js';
+    import { listCourseRounds, getActiveRound, setActiveRound, createRound, updateRoundHoleStrokes, getRoundSummary, getScorecardSections } from './js/scorecards.js';
+    import { initDistanceOverlay } from './js/overlay.js';
+    import { initMeasurement } from './js/measurement.js';
+    import { registerServiceWorker } from './js/offline.js';
+
+    const holeContent = document.getElementById('holeContent');
+    const holeNav = document.getElementById('holeNav');
+    const backLink = document.getElementById('backLink');
+    const holeHeaderInfo = document.getElementById('holeHeaderInfo');
+    const holeDetailsPanelRoot = document.getElementById('holeDetailsPanelRoot');
+    const holeDetailsToggle = document.getElementById('holeDetailsToggle');
+    const holeDetailsBackdrop = document.getElementById('holeDetailsBackdrop');
+    const holeDetailsPanel = document.getElementById('holeDetailsPanel');
+    const holeDetailsContent = document.getElementById('holeDetailsContent');
+    const clubSettings = document.getElementById('clubSettings');
+    const clubSettingsToggle = document.getElementById('clubSettingsToggle');
+    const clubSettingsBackdrop = document.getElementById('clubSettingsBackdrop');
+    const clubSettingsPanel = document.getElementById('clubSettingsPanel');
+    const prevHole = document.getElementById('prevHole');
+    const nextHole = document.getElementById('nextHole');
+    const MAP_CALIBRATION_STORAGE_KEY = 'banguide_map_calibration_v1';
+    const HOLE_NAV_TRANSITION_MS = 180;
+    const ROUND_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    let holeNavigationInFlight = false;
+    let measurement = null;
+
+    function prefersReducedMotion() {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    function getHoleNavDelay() {
+      return prefersReducedMotion() ? 0 : HOLE_NAV_TRANSITION_MS;
+    }
+
+    function ignoreModifiedHoleNavigation(event, link) {
+      return !link
+        || !link.href
+        || link.classList.contains('hole-nav-btn--disabled')
+        || event.defaultPrevented
+        || event.button !== 0
+        || event.metaKey
+        || event.ctrlKey
+        || event.shiftKey
+        || event.altKey
+        || link.target === '_blank';
+    }
+
+    function finishHolePageEntry() {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          document.body.classList.remove('is-entering');
+        });
+      });
+    }
+
+    function handleHoleNavigation(event) {
+      const link = event.currentTarget;
+      if (ignoreModifiedHoleNavigation(event, link)) {
+        return;
+      }
+
+      event.preventDefault();
+      if (holeNavigationInFlight) {
+        return;
+      }
+
+      holeNavigationInFlight = true;
+      closeHoleDetailsPanel();
+      closeClubSettingsPanel();
+      if (measurement) {
+        measurement.stop();
+      }
+      holeNav?.setAttribute('aria-disabled', 'true');
+      document.body.classList.remove('is-entering');
+      document.body.classList.add('is-leaving');
+
+      window.setTimeout(() => {
+        window.location.assign(link.href);
+      }, getHoleNavDelay());
+    }
+
+    function buildCalibrationKey(courseId, holeNumber) {
+      return `${courseId}:${holeNumber}`;
+    }
+
+    function loadCalibrationmetersPerPixel(courseId, holeNumber) {
+      try {
+        const raw = localStorage.getItem(MAP_CALIBRATION_STORAGE_KEY);
+        if (!raw) {
+          return null;
+        }
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+          return null;
+        }
+
+        const value = Number(parsed[buildCalibrationKey(courseId, holeNumber)]);
+        return Number.isFinite(value) && value > 0 ? value : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveCalibrationmetersPerPixel(courseId, holeNumber, metersPerPixel) {
+      try {
+        const raw = localStorage.getItem(MAP_CALIBRATION_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        const store = parsed && typeof parsed === 'object' ? parsed : {};
+        store[buildCalibrationKey(courseId, holeNumber)] = Number(metersPerPixel);
+        localStorage.setItem(MAP_CALIBRATION_STORAGE_KEY, JSON.stringify(store));
+      } catch {
+        // Ignore write failures and continue with in-memory value.
+      }
+    }
+
+    function clearCalibrationmetersPerPixel(courseId, holeNumber) {
+      try {
+        const raw = localStorage.getItem(MAP_CALIBRATION_STORAGE_KEY);
+        if (!raw) {
+          return;
+        }
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+          return;
+        }
+
+        delete parsed[buildCalibrationKey(courseId, holeNumber)];
+        localStorage.setItem(MAP_CALIBRATION_STORAGE_KEY, JSON.stringify(parsed));
+      } catch {
+        // Ignore storage cleanup failures.
+      }
+    }
+
+    function escapeHtml(text) {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return String(text).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function formatRoundDate(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return 'Saved round';
+      }
+      return ROUND_DATE_FORMATTER.format(date);
+    }
+
+    function formatDistance(value) {
+      const numericValue = Number.parseInt(value, 10);
+      return Number.isInteger(numericValue) && numericValue > 0 ? `${numericValue} m` : '-';
+    }
+
+    function setHeaderPanelState(toggle, panel, backdrop, isOpen) {
+      if (panel) {
+        if (isOpen) {
+          panel.removeAttribute('hidden');
+        } else {
+          panel.setAttribute('hidden', '');
+          panel.style.removeProperty('--header-panel-shift-x');
+        }
+      }
+
+      if (backdrop) {
+        if (isOpen) {
+          backdrop.removeAttribute('hidden');
+        } else {
+          backdrop.setAttribute('hidden', '');
+        }
+      }
+
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      }
+    }
+
+    function closeHoleDetailsPanel() {
+      setHeaderPanelState(holeDetailsToggle, holeDetailsPanel, holeDetailsBackdrop, false);
+    }
+
+    function closeClubSettingsPanel() {
+      setHeaderPanelState(clubSettingsToggle, clubSettingsPanel, clubSettingsBackdrop, false);
+    }
+
+    [prevHole, nextHole].forEach((link) => {
+      link?.addEventListener('click', handleHoleNavigation);
+    });
+
+    function positionHeaderPanel(panel) {
+      if (!panel || panel.hasAttribute('hidden')) {
+        return;
+      }
+
+      const viewportGutter = 12;
+      panel.style.setProperty('--header-panel-shift-x', '0px');
+
+      const panelRect = panel.getBoundingClientRect();
+      let shiftX = 0;
+
+      if (panelRect.left < viewportGutter) {
+        shiftX = viewportGutter - panelRect.left;
+      } else {
+        const maxRight = window.innerWidth - viewportGutter;
+        if (panelRect.right > maxRight) {
+          shiftX = maxRight - panelRect.right;
+        }
+      }
+
+      panel.style.setProperty('--header-panel-shift-x', `${Math.round(shiftX)}px`);
+    }
+
+    function positionClubSettingsPanel() {
+      positionHeaderPanel(clubSettingsPanel);
+    }
+
+    function positionHoleDetailsPanel() {
+      positionHeaderPanel(holeDetailsPanel);
+    }
+
+    function setupHeaderPanel(toggle, panel, backdrop, onOpen, onClose, position) {
+      if (!toggle || !panel || !backdrop) {
+        return;
+      }
+
+      const openPanel = () => {
+        onOpen?.();
+        setHeaderPanelState(toggle, panel, backdrop, true);
+        window.requestAnimationFrame(position);
+      };
+
+      toggle.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const isOpen = !panel.hasAttribute('hidden');
+        if (isOpen) {
+          onClose?.();
+        } else {
+          openPanel();
+        }
+      });
+
+      backdrop.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+
+      backdrop.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose?.();
+      });
+
+      window.addEventListener('resize', position);
+    }
+
+    setupHeaderPanel(holeDetailsToggle, holeDetailsPanel, holeDetailsBackdrop, closeClubSettingsPanel, closeHoleDetailsPanel, positionHoleDetailsPanel);
+    setupHeaderPanel(clubSettingsToggle, clubSettingsPanel, clubSettingsBackdrop, closeHoleDetailsPanel, closeClubSettingsPanel, positionClubSettingsPanel);
+
+    async function initializePage() {
+      const params = new URLSearchParams(window.location.search);
+      const courseId = params.get('id');
+      const holeNum = parseInt(params.get('hole'), 10);
+
+      if (courseId) {
+        backLink.href = `course.html?id=${encodeURIComponent(courseId)}`;
+      }
+
+      try {
+        const [courses, holes] = await Promise.all([
+          loadCourses(),
+          loadHoles(courseId)
+        ]);
+
+        const course = courseId ? getCourseById(courses, courseId) : null;
+        const hole = getHoleData(holes, holeNum);
+        const holeMapConfig = hole && hole.map ? { ...hole.map } : null;
+
+        if (!hole || isNaN(holeNum) || holeNum < 1 || holeNum > holes.length) {
+          clubSettings?.setAttribute('hidden', '');
+          holeDetailsPanelRoot?.setAttribute('hidden', '');
+          holeHeaderInfo?.setAttribute('hidden', 'hidden');
+          if (holeDetailsContent) {
+            holeDetailsContent.innerHTML = '';
+          }
+          closeHoleDetailsPanel();
+          closeClubSettingsPanel();
+          holeContent.innerHTML = `
+            <div class="state-error">
+              <p class="state-error-heading" style="color: var(--color-destructive); font-weight: 600;">Hole not found</p>
+              <p class="state-error-body">Return to the hole list and choose another hole.</p>
+            </div>
+          `;
+          document.title = 'Hole not found - BanGuide';
+          finishHolePageEntry();
+          return;
+        }
+
+        const courseLabel = course ? course.name : courseId;
+
+        const defaultmetersPerPixel = Number(holeMapConfig?.metersPerPixel);
+        const savedmetersPerPixel = loadCalibrationmetersPerPixel(courseId, hole.hole);
+        const hasDefaultScale = Number.isFinite(defaultmetersPerPixel) && defaultmetersPerPixel > 0;
+        const isImportedCourse = courseId && courseId.startsWith('import-');
+        let courseRounds = listCourseRounds(courseId);
+        let activeRound = getActiveRound(courseId);
+
+        function syncRounds() {
+          courseRounds = listCourseRounds(courseId);
+          activeRound = getActiveRound(courseId);
+        }
+
+        function getCurrentHoleStrokes() {
+          const storedStrokes = Number.parseInt(activeRound?.scores?.[String(hole.hole)], 10);
+          if (Number.isInteger(storedStrokes) && storedStrokes > 0) {
+            return storedStrokes;
+          }
+
+          const parStrokes = Number.parseInt(hole.par, 10);
+          return Number.isInteger(parStrokes) && parStrokes > 0 ? parStrokes : null;
+        }
+
+        function hasSavedCurrentHoleStrokes() {
+          const storedStrokes = Number.parseInt(activeRound?.scores?.[String(hole.hole)], 10);
+          return Number.isInteger(storedStrokes) && storedStrokes > 0;
+        }
+
+        function renderScorecardSection(section) {
+          return `
+            <div class="scorecard-table-wrap">
+              <table class="scorecard-table" aria-label="${escapeHtml(section.label)} scorecard">
+                <tbody>
+                  <tr>
+                    <th scope="row">Hole</th>
+                    ${section.holes.map((sectionHole) => `
+                      <td class="${sectionHole.hole === hole.hole ? 'is-current-hole' : ''}">${sectionHole.hole}</td>
+                    `).join('')}
+                    <th scope="col" class="scorecard-table__segment">${section.label}</th>
+                  </tr>
+                  <tr>
+                    <th scope="row">Par</th>
+                    ${section.holes.map((sectionHole) => `
+                      <td class="${sectionHole.hole === hole.hole ? 'is-current-hole' : ''}">${sectionHole.par}</td>
+                    `).join('')}
+                    <td class="scorecard-table__total">${section.parTotal}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Strokes</th>
+                    ${section.holes.map((sectionHole) => {
+                      const strokes = Number.parseInt(activeRound?.scores?.[String(sectionHole.hole)], 10);
+                      const displayValue = Number.isInteger(strokes) && strokes > 0 ? strokes : '-';
+                      return `
+                        <td class="${sectionHole.hole === hole.hole ? 'is-current-hole' : ''}">${displayValue}</td>
+                      `;
+                    }).join('')}
+                    <td class="scorecard-table__total">${section.strokeTotal > 0 ? section.strokeTotal : '-'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        function renderHoleDetails() {
+          if (!holeDetailsContent) {
+            return;
+          }
+
+          syncRounds();
+          const scorecardSections = activeRound ? getScorecardSections(holes, activeRound) : [];
+          const currentHoleStrokes = getCurrentHoleStrokes();
+          const hasSavedCurrentHole = hasSavedCurrentHoleStrokes();
+          const teePills = [
+            { key: 'red', label: 'Red', className: 'tee-pill--red' },
+            { key: 'blue', label: 'Blue', className: 'tee-pill--blue' },
+            { key: 'yellow', label: 'Yellow', className: 'tee-pill--yellow' },
+            { key: 'white', label: 'White', className: 'tee-pill--white' }
+          ]
+            .map((tee) => ({
+              ...tee,
+              distance: Number(hole?.distances?.[tee.key])
+            }))
+            .filter((tee) => Number.isFinite(tee.distance))
+            .sort((a, b) => {
+              if (a.distance !== b.distance) {
+                return a.distance - b.distance;
+              }
+
+              // Keep a predictable order when two tees share the same distance.
+              const tieBreakOrder = { red: 0, blue: 1, yellow: 2, white: 3 };
+              return tieBreakOrder[a.key] - tieBreakOrder[b.key];
+            })
+            .map((tee) => `<div class="tee-pill ${tee.className}" aria-label="${tee.label} tee ${formatDistance(tee.distance)}">${tee.label} ${formatDistance(tee.distance)}</div>`)
+            .join('');
+
+          holeDetailsContent.innerHTML = `
+            <div class="hole-info-panel__section">
+              <div class="hole-summary" aria-label="Hole summary">
+                <div class="hole-summary__chip">
+                  <span class="hole-summary__label">Par</span>
+                  <span class="hole-summary__value">${hole.par}</span>
+                </div>
+                <div class="hole-summary__chip">
+                  <span class="hole-summary__label">Stroke index</span>
+                  <span class="hole-summary__value">${hole.strokeIndex}</span>
+                </div>
+              </div>
+            </div>
+            <div class="hole-info-panel__section">
+              <p class="hole-info-panel__heading">Tee distances</p>
+              <div class="tee-pill-row">
+                ${teePills}
+              </div>
+            </div>
+            <div class="hole-info-panel__section">
+              <div class="scorecard-toolbar">
+                <div>
+                  <p class="hole-info-panel__heading">Round</p>
+                  <p class="scorecard-toolbar__meta">${courseRounds.length > 0 ? `${courseRounds.length} saved` : 'No round started yet'}</p>
+                </div>
+                <button class="scorecard-toolbar__button" type="button" data-scorecard-action="new-round">${courseRounds.length > 0 ? 'New round' : 'Start round'}</button>
+              </div>
+              ${courseRounds.length > 0 ? `
+                <label class="scorecard-toolbar__label" for="scorecardRoundSelect">Saved rounds</label>
+                <select id="scorecardRoundSelect" class="club-input scorecard-toolbar__select" aria-label="Saved rounds">
+                  ${courseRounds.map((round) => `
+                    <option value="${escapeHtml(round.id)}" ${activeRound?.id === round.id ? 'selected' : ''}>${escapeHtml(round.name)} · ${escapeHtml(formatRoundDate(round.updatedAt))}</option>
+                  `).join('')}
+                </select>
+              ` : `
+                <p class="scorecard-empty">Start a round to track strokes hole by hole.</p>
+              `}
+            </div>
+            ${activeRound ? `
+              <div class="hole-info-panel__section">
+                <p class="hole-info-panel__heading">Current hole</p>
+                <div class="scorecard-stepper" aria-label="Hole ${hole.hole} strokes">
+                  <span class="scorecard-stepper__hole">Hole ${hole.hole}</span>
+                  <button class="scorecard-stepper__button" type="button" data-scorecard-action="decrement-strokes" ${currentHoleStrokes === null ? 'disabled' : ''} aria-label="Decrease strokes for hole ${hole.hole}">-</button>
+                  ${hasSavedCurrentHole ? `
+                    <span class="scorecard-stepper__value" aria-live="polite">${currentHoleStrokes === null ? '-' : currentHoleStrokes}</span>
+                  ` : `
+                    <button class="scorecard-stepper__value scorecard-stepper__value--pending" type="button" data-scorecard-action="approve-default" aria-label="Save ${currentHoleStrokes} strokes for hole ${hole.hole}" title="Save this par score">${currentHoleStrokes === null ? '-' : currentHoleStrokes}</button>
+                  `}
+                  <button class="scorecard-stepper__button" type="button" data-scorecard-action="increment-strokes" aria-label="Increase strokes for hole ${hole.hole}">+</button>
+                </div>
+              </div>
+              <div class="hole-info-panel__section">
+                <p class="hole-info-panel__heading">Scorecard</p>
+                <div class="scorecard-tables">
+                  ${scorecardSections.map(renderScorecardSection).join('')}
+                </div>
+              </div>
+            ` : ''}
+          `;
+
+          if (!holeDetailsPanel.hasAttribute('hidden')) {
+            window.requestAnimationFrame(positionHoleDetailsPanel);
+          }
+        }
+
+        // Seed localStorage with imported calibration if present and not already saved
+        if (hasDefaultScale && !savedmetersPerPixel) {
+          saveCalibrationmetersPerPixel(courseId, hole.hole, defaultmetersPerPixel);
+        }
+
+        // For imported courses without default scale, use saved calibration or use uncalibrated 1:1
+        if (holeMapConfig && Number.isFinite(savedmetersPerPixel) && savedmetersPerPixel > 0) {
+          holeMapConfig.metersPerPixel = savedmetersPerPixel;
+        } else if (isImportedCourse && !hasDefaultScale && !holeMapConfig?.metersPerPixel) {
+          // Allow uncalibrated rendering (will use default 1:1 from map.js)
+          // Do NOT set metersPerPixel
+        }
+
+        document.title = `Hole ${hole.hole} — ${courseLabel} — BanGuide`;
+
+        if (holeHeaderInfo) {
+          holeHeaderInfo.textContent = `${courseLabel} · Hole ${hole.hole}`;
+          holeHeaderInfo.removeAttribute('hidden');
+        }
+
+        holeContent.innerHTML = `
+          <div class="hole-map-shell">
+            <div id="holeMap" class="hole-map hole-map--loading" aria-label="Hole map"></div>
+            <div id="mapCalibrationWarning" class="map-calibration-warning" role="status" aria-live="polite" hidden>
+              Calibration needed: distance overlays may be inaccurate.
+            </div>
+            <div id="measurementActions" class="measurement-actions" hidden>
+              <button id="clearMeasurementBtn" class="overlay-toggle-btn" type="button" aria-label="Clear measurement">Clear measurement</button>
+            </div>
+            <div id="overlayToggle" class="overlay-toggle-row" hidden>
+              <button id="clearOverlayBtn" class="overlay-toggle-btn" type="button" aria-label="Clear club radius lines" hidden>Clear club lines</button>
+              <button id="measureDistanceBtn" class="overlay-toggle-btn" type="button" aria-label="Measure distance between two points" hidden>Measure distance</button>
+            </div>
+          </div>
+        `;
+
+        renderHoleDetails();
+
+        holeDetailsPanelRoot?.removeAttribute('hidden');
+        clubSettings?.removeAttribute('hidden');
+        closeHoleDetailsPanel();
+        closeClubSettingsPanel();
+
+        holeDetailsContent?.addEventListener('click', (event) => {
+          const actionTarget = event.target.closest('[data-scorecard-action]');
+          if (!actionTarget) {
+            return;
+          }
+
+          const action = actionTarget.getAttribute('data-scorecard-action');
+          if (action === 'new-round') {
+            if (courseRounds.length > 0) {
+              const shouldCreateRound = window.confirm('Create a new round? This will keep existing rounds but start a fresh scorecard.');
+              if (!shouldCreateRound) {
+                return;
+              }
+            }
+
+            createRound(courseId, holes.length);
+            renderHoleDetails();
+            return;
+          }
+
+          if (!activeRound) {
+            return;
+          }
+
+          const currentStrokes = getCurrentHoleStrokes();
+          if (action === 'approve-default') {
+            updateRoundHoleStrokes(courseId, activeRound.id, hole.hole, currentStrokes);
+            renderHoleDetails();
+          } else if (action === 'increment-strokes') {
+            updateRoundHoleStrokes(courseId, activeRound.id, hole.hole, (currentStrokes || 0) + 1);
+            renderHoleDetails();
+          } else if (action === 'decrement-strokes') {
+            const nextValue = currentStrokes === null ? null : currentStrokes - 1;
+            updateRoundHoleStrokes(courseId, activeRound.id, hole.hole, nextValue > 0 ? nextValue : null);
+            renderHoleDetails();
+          }
+        });
+
+        holeDetailsContent?.addEventListener('change', (event) => {
+          const select = event.target.closest('#scorecardRoundSelect');
+          if (!select) {
+            return;
+          }
+
+          setActiveRound(courseId, select.value);
+          renderHoleDetails();
+        });
+
+        const holeMapContainer = document.getElementById('holeMap');
+        const calibrationStatus = document.getElementById('mapCalibrationStatus');
+        const startCalibrationBtn = document.getElementById('startCalibrationBtn');
+        const calibrationPanel = document.getElementById('mapCalibrationPanel');
+        const calibrationHint = document.getElementById('mapCalibrationHint');
+        const calibrationDistanceInput = document.getElementById('mapCalibrationDistance');
+        const applyCalibrationBtn = document.getElementById('applyCalibrationBtn');
+        const cancelCalibrationBtn = document.getElementById('cancelCalibrationBtn');
+        const resetCalibrationBtn = document.getElementById('resetCalibrationBtn');
+
+        let overlay = null;
+        let leafletMap = null;
+        let calibrationLayer = null;
+        let calibrationPoints = [];
+        let calibrationClickHandler = null;
+        let isCalibrating = false;
+        let currentmetersPerPixel = Number(holeMapConfig?.metersPerPixel) || (Number.isFinite(savedmetersPerPixel) && savedmetersPerPixel > 0 ? savedmetersPerPixel : NaN);
+        const calibrationWarning = document.getElementById('mapCalibrationWarning');
+        const measurementActions = document.getElementById('measurementActions');
+        const clearMeasurementBtn = document.getElementById('clearMeasurementBtn');
+        const toggleRow = document.getElementById('overlayToggle');
+        const clearOverlayBtn = document.getElementById('clearOverlayBtn');
+
+        function updateMeasurementActions(state = null) {
+          if (!measurementActions) {
+            return;
+          }
+
+          const canClear = Boolean(state?.canClear);
+          if (canClear) {
+            measurementActions.removeAttribute('hidden');
+          } else {
+            measurementActions.setAttribute('hidden', '');
+          }
+        }
+
+        function updateCalibrationWarning() {
+          if (!calibrationWarning) {
+            return;
+          }
+
+          const needsCalibrationWarning = isImportedCourse && !Number.isFinite(currentmetersPerPixel);
+          if (needsCalibrationWarning) {
+            calibrationWarning.removeAttribute('hidden');
+          } else {
+            calibrationWarning.setAttribute('hidden', '');
+          }
+        }
+
+        function updateCalibrationStatusMessage() {
+          updateCalibrationWarning();
+
+          if (!calibrationStatus) {
+            return;
+          }
+
+          if (!hasDefaultScale && !Number.isFinite(currentmetersPerPixel)) {
+            // Uncalibrated imported map
+            calibrationStatus.textContent = 'Map scale needs calibration. Tap "Calibrate map scale" to set it.';
+            return;
+          }
+
+          if (!hasDefaultScale) {
+            const rounded = Number(currentmetersPerPixel).toFixed(4);
+            calibrationStatus.textContent = Number.isFinite(currentmetersPerPixel)
+              ? `Using calibrated scale: ${rounded} meters/pixel.`
+              : 'Map scale needs calibration. Tap "Calibrate map scale" to set it.';
+            return;
+          }
+
+          const isCustom = Math.abs(currentmetersPerPixel - defaultmetersPerPixel) > 0.000001;
+          const rounded = Number(currentmetersPerPixel).toFixed(4);
+          calibrationStatus.textContent = isCustom
+            ? `Using calibrated scale: ${rounded} meters/pixel.`
+            : `Using course map scale: ${rounded} meters/pixel.`;
+        }
+
+        function updateCalibrationHintMessage() {
+          if (!calibrationHint) {
+            return;
+          }
+
+          if (calibrationPoints.length === 0) {
+            calibrationHint.textContent = 'Tap point 1 on the map.';
+            return;
+          }
+
+          if (calibrationPoints.length === 1) {
+            calibrationHint.textContent = 'Tap point 2 on the map.';
+            return;
+          }
+
+          calibrationHint.textContent = 'Enter the known distance in meters, then save scale.';
+        }
+
+        function updateCalibrationActions() {
+          if (applyCalibrationBtn) {
+            const knownDistance = Number(calibrationDistanceInput?.value);
+            const canApply = calibrationPoints.length === 2 && Number.isFinite(knownDistance) && knownDistance > 0;
+            applyCalibrationBtn.disabled = !canApply;
+          }
+
+          if (resetCalibrationBtn) {
+            const isCustom = hasDefaultScale
+              ? Math.abs(currentmetersPerPixel - defaultmetersPerPixel) > 0.000001
+              : Number.isFinite(currentmetersPerPixel);
+            resetCalibrationBtn.disabled = !isCustom;
+          }
+        }
+
+        function clearCalibrationLayer() {
+          if (leafletMap && calibrationLayer) {
+            leafletMap.removeLayer(calibrationLayer);
+          }
+          calibrationLayer = null;
+        }
+
+        function renderCalibrationLayer() {
+          if (!leafletMap || calibrationPoints.length === 0) {
+            clearCalibrationLayer();
+            return;
+          }
+
+          clearCalibrationLayer();
+          calibrationLayer = L.layerGroup();
+
+          calibrationPoints.forEach((point) => {
+            L.circleMarker(point, {
+              radius: 6,
+              color: '#111111',
+              weight: 2,
+              fillColor: '#ffffff',
+              fillOpacity: 1,
+            }).addTo(calibrationLayer);
+          });
+
+          if (calibrationPoints.length === 2) {
+            L.polyline(calibrationPoints, {
+              color: '#111111',
+              weight: 2,
+              dashArray: '6 4',
+            }).addTo(calibrationLayer);
+          }
+
+          calibrationLayer.addTo(leafletMap);
+        }
+
+        function setCalibrationMode(active) {
+          isCalibrating = Boolean(active) && Boolean(leafletMap);
+
+          if (isCalibrating && measurement) {
+            measurement.stop();
+          }
+
+          if (!isCalibrating) {
+            calibrationPoints = [];
+            clearCalibrationLayer();
+          }
+
+          if (calibrationPanel) {
+            if (isCalibrating) {
+              calibrationPanel.removeAttribute('hidden');
+            } else {
+              calibrationPanel.setAttribute('hidden', '');
+            }
+          }
+
+          if (startCalibrationBtn) {
+            startCalibrationBtn.textContent = isCalibrating ? 'Calibrating…' : 'Calibrate map scale';
+            startCalibrationBtn.classList.toggle('map-calibration__start--active', isCalibrating);
+            startCalibrationBtn.disabled = !leafletMap;
+          }
+
+          if (calibrationDistanceInput && !isCalibrating) {
+            calibrationDistanceInput.value = '';
+          }
+
+          updateCalibrationHintMessage();
+          updateCalibrationActions();
+        }
+
+        function setupMap() {
+          if (measurement) {
+            measurement.destroy();
+            measurement = null;
+            updateMeasurementActions();
+          }
+
+          if (overlay) {
+            overlay.destroy();
+            overlay = null;
+          }
+
+          if (leafletMap && calibrationClickHandler) {
+            leafletMap.off('click', calibrationClickHandler);
+          }
+
+          leafletMap = initHoleMap({
+            container: holeMapContainer,
+            hole: hole,
+            getmetersPerPixel: () => currentmetersPerPixel
+          });
+
+          if (!leafletMap) {
+            toggleRow.setAttribute('hidden', '');
+            updateMeasurementActions();
+            setCalibrationMode(false);
+            updateCalibrationStatusMessage();
+            return;
+          }
+
+          overlay = initDistanceOverlay({
+            map: leafletMap,
+            getClubs: loadClubs,
+            shouldHandleTap: () => {
+              // Disable overlay taps if currently calibrating
+              if (isCalibrating) return false;
+              // Disable overlay for uncalibrated imported maps
+              if (isImportedCourse && !Number.isFinite(currentmetersPerPixel)) {
+                console.warn('Overlay disabled: map not calibrated');
+                return false;
+              }
+              return true;
+            },
+            onRender({ canClear }) {
+              if (canClear) {
+                clearOverlayBtn.removeAttribute('hidden');
+                toggleRow.removeAttribute('hidden');
+              } else {
+                clearOverlayBtn.setAttribute('hidden', '');
+                toggleRow.setAttribute('hidden', '');
+              }
+            },
+          });
+
+          measurement = initMeasurement({
+            map: leafletMap,
+            isCalibrated: () => !isImportedCourse || Number.isFinite(currentmetersPerPixel),
+            onStateChange: updateMeasurementActions,
+          });
+
+          calibrationClickHandler = (event) => {
+            if (!isCalibrating) {
+              return;
+            }
+
+            if (calibrationPoints.length >= 2) {
+              calibrationPoints = [];
+            }
+
+            calibrationPoints.push(event.latlng);
+            renderCalibrationLayer();
+            updateCalibrationHintMessage();
+            updateCalibrationActions();
+          };
+
+          leafletMap.on('click', calibrationClickHandler);
+          renderCalibrationLayer();
+          updateCalibrationStatusMessage();
+          setCalibrationMode(isCalibrating);
+        }
+
+        clearOverlayBtn.addEventListener('click', () => {
+          if (overlay) {
+            overlay.clear();
+          }
+        });
+
+        if (startCalibrationBtn) {
+          startCalibrationBtn.addEventListener('click', () => {
+            if (!leafletMap) {
+              return;
+            }
+
+            setCalibrationMode(!isCalibrating);
+          });
+        }
+
+        if (clearMeasurementBtn) {
+          clearMeasurementBtn.addEventListener('click', () => {
+            if (measurement) {
+              measurement.clear();
+            }
+          });
+        }
+
+        if (calibrationDistanceInput) {
+          calibrationDistanceInput.addEventListener('input', () => {
+            updateCalibrationActions();
+          });
+        }
+
+        if (cancelCalibrationBtn) {
+          cancelCalibrationBtn.addEventListener('click', () => {
+            setCalibrationMode(false);
+          });
+        }
+
+        if (applyCalibrationBtn) {
+          applyCalibrationBtn.addEventListener('click', () => {
+            if (!leafletMap || calibrationPoints.length !== 2) {
+              return;
+            }
+
+            const enteredDistance = Number(calibrationDistanceInput?.value);
+            const measuredDistance = leafletMap.distance(calibrationPoints[0], calibrationPoints[1]);
+            if (!Number.isFinite(enteredDistance) || enteredDistance <= 0 || !Number.isFinite(measuredDistance) || measuredDistance <= 0) {
+              return;
+            }
+
+            const basemetersPerPixel = Number.isFinite(currentmetersPerPixel) && currentmetersPerPixel > 0
+              ? currentmetersPerPixel
+              : 1;
+            const nextmetersPerPixel = basemetersPerPixel * (enteredDistance / measuredDistance);
+            if (!Number.isFinite(nextmetersPerPixel) || nextmetersPerPixel <= 0) {
+              return;
+            }
+
+            currentmetersPerPixel = nextmetersPerPixel;
+            if (holeMapConfig) {
+              holeMapConfig.metersPerPixel = nextmetersPerPixel;
+            }
+            saveCalibrationmetersPerPixel(courseId, hole.hole, nextmetersPerPixel);
+
+            setCalibrationMode(false);
+            updateCalibrationStatusMessage();
+            setupMap();
+          });
+        }
+
+        if (resetCalibrationBtn) {
+          resetCalibrationBtn.addEventListener('click', () => {
+            if (hasDefaultScale) {
+              currentmetersPerPixel = defaultmetersPerPixel;
+              if (holeMapConfig) {
+                holeMapConfig.metersPerPixel = defaultmetersPerPixel;
+              }
+            } else {
+              currentmetersPerPixel = NaN;
+              if (holeMapConfig) {
+                delete holeMapConfig.metersPerPixel;
+              }
+            }
+            clearCalibrationmetersPerPixel(courseId, hole.hole);
+
+            setCalibrationMode(false);
+            updateCalibrationStatusMessage();
+            setupMap();
+          });
+        }
+
+        updateCalibrationStatusMessage();
+        setCalibrationMode(false);
+        setupMap();
+
+        function renderClubList() {
+          const list = document.getElementById('clubList');
+          if (!list) return;
+          const clubs = loadClubs();
+          list.innerHTML = clubs.map((club, i) => `
+            <div class="club-row" data-index="${i}">
+              <span class="club-row__name">${escapeHtml(club.name)}</span>
+              <span class="club-row__meters">${club.meters} m</span>
+              <button class="club-row__edit" data-action="edit" data-index="${i}" type="button" aria-label="Edit ${escapeHtml(club.name)}">Edit</button>
+              <button class="club-row__delete" data-action="delete" data-index="${i}" type="button" aria-label="Delete ${escapeHtml(club.name)}">✕</button>
+            </div>
+          `).join('');
+        }
+
+        renderClubList();
+
+        document.getElementById('clubList').addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-action]');
+          if (!btn) return;
+          const idx = parseInt(btn.dataset.index, 10);
+          const action = btn.dataset.action;
+
+          if (action === 'delete') {
+            deleteClub(idx);
+            renderClubList();
+          } else if (action === 'edit') {
+            const row = btn.closest('.club-row');
+            const clubs = loadClubs();
+            const club = clubs[idx];
+            row.innerHTML = `
+              <input type="text" class="club-input club-edit-name" value="${escapeHtml(club.name)}" maxlength="20">
+              <input type="number" class="club-input club-input--meters club-edit-meters" value="${club.meters}" min="1" max="366">
+              <button class="club-row__save" data-action="save" data-index="${idx}" type="button">Save</button>
+              <button class="club-row__cancel" data-action="cancel" type="button">✕</button>
+            `;
+          } else if (action === 'save') {
+            const row = btn.closest('.club-row');
+            const name = row.querySelector('.club-edit-name').value.trim();
+            const meters = parseInt(row.querySelector('.club-edit-meters').value, 10);
+            if (name && meters > 0 && meters <= 366) {
+              updateClub(idx, name, meters);
+              renderClubList();
+            }
+          } else if (action === 'cancel') {
+            renderClubList();
+          }
+        });
+
+        document.getElementById('addClubForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const name = document.getElementById('newClubName').value.trim();
+          const meters = parseInt(document.getElementById('newClubmeters').value, 10);
+          if (name && meters > 0 && meters <= 366) {
+            addClub(name, meters);
+            document.getElementById('newClubName').value = '';
+            document.getElementById('newClubmeters').value = '';
+            renderClubList();
+          }
+        });
+
+        const totalHoles = holes.length;
+        const isFirst = hole.hole === 1;
+        const isLast = hole.hole === totalHoles;
+
+        if (isFirst) {
+          prevHole.textContent = '← Hole 1';
+          prevHole.classList.add('hole-nav-btn--disabled');
+          prevHole.removeAttribute('href');
+        } else {
+          prevHole.textContent = `← Hole ${hole.hole - 1}`;
+          prevHole.href = buildHoleHref(courseId, hole.hole - 1);
+          prevHole.classList.remove('hole-nav-btn--disabled');
+        }
+
+        if (isLast) {
+          nextHole.textContent = `Hole ${totalHoles} →`;
+          nextHole.classList.add('hole-nav-btn--disabled');
+          nextHole.removeAttribute('href');
+        } else {
+          nextHole.textContent = `Hole ${hole.hole + 1} →`;
+          nextHole.href = buildHoleHref(courseId, hole.hole + 1);
+          nextHole.classList.remove('hole-nav-btn--disabled');
+        }
+
+        holeNav.removeAttribute('hidden');
+        finishHolePageEntry();
+      } catch (error) {
+        console.error('Error loading hole:', error);
+        clubSettings?.setAttribute('hidden', '');
+        holeHeaderInfo?.setAttribute('hidden', 'hidden');
+        closeClubSettingsPanel();
+        const isOfflineUncached = error?.code === 'OFFLINE_UNCACHED';
+        holeContent.innerHTML = `
+          <div class="state-error">
+            <p class="state-error-heading" style="color: var(--color-destructive); font-weight: 600;">Couldn't load hole guide</p>
+            <p class="state-error-body">${isOfflineUncached
+              ? 'This hole page has not been cached yet. Reconnect and open this hole once to store it for offline use.'
+              : 'Check your connection and try again.'}
+            </p>
+          </div>
+        `;
+        document.title = 'Error - BanGuide';
+        finishHolePageEntry();
+      }
+    }
+
+    registerServiceWorker();
+    initializePage();
+  </script>
+</body>
+</html>

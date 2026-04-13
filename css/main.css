@@ -1,0 +1,150 @@
+/* Global Design Tokens and Layout Rules */
+
+:root {
+  /* Color */
+  --color-bg:        #f4f7f5;           /* Page background — off-white with green undertone */
+  --color-surface:   #ffffff;           /* Cards, nav, surfaces */
+  --color-accent:    #1b6b3a;           /* Golf green — CTAs, badges, active states */
+  --color-accent-hover: #155730;        /* Darker green for hover/active */
+  --color-text:      #111827;           /* Primary text */
+  --color-muted:     #6b7280;           /* Secondary text, labels */
+  --color-border:    #e5e7eb;           /* Dividers, card borders */
+  --color-destructive: #dc2626;         /* Errors, destructive actions */
+
+  /* Semantic tee colors - used only in tee pill components */
+  --color-tee-blue:   #3b82f6;
+  --color-tee-yellow: #eab308;
+  --color-tee-red:    #ef4444;
+  --color-tee-white:  #f9fafb;
+
+  /* Spacing */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-size-sm:      13px;
+  --font-size-body:    16px;
+  --font-size-heading: 18px;
+  --font-size-display: 24px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  /* Shadow */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+
+  /* Touch targets */
+  --min-touch: 44px;  /* WCAG AA minimum */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Layout */
+  --content-max-width: 640px;
+  --page-padding: var(--space-md);
+}
+
+/* Global Styles */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+/* Page Container */
+
+.page {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  width: 100%;
+  padding: var(--page-padding);
+}
+
+/* Typography */
+
+h1 {
+  font-size: var(--font-size-display);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
+h2 {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text);
+}
+
+p {
+  font-size: var(--font-size-body);
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+.text-muted {
+  color: var(--color-muted);
+}
+
+.text-secondary {
+  font-size: var(--font-size-body);
+  color: var(--color-muted);
+}
+
+.text-label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--color-muted);
+}
+
+/* Utility Classes */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Focus/Keyboard Navigation */
+
+button, a, [tabindex] {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--color-accent);
+}

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Course — BanGuide</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <header class="page-header">
+    <div class="course-page-header">
+      <a href="index.html" class="back-nav">← Courses</a>
+      <div id="courseHeaderInfo" class="course-page-header__info" hidden>
+        <p id="courseHeaderName" class="course-page-header__name"></p>
+        <p id="courseHeaderMeta" class="course-page-header__meta"></p>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <div id="courseContent"></div>
+  </main>
+
+  <script type="module">
+    import { loadCourses, getCourseById } from './js/courses.js';
+    import { loadHoles, buildHoleHref } from './js/holes.js';
+    import { registerServiceWorker } from './js/offline.js';
+
+    const courseContent = document.getElementById('courseContent');
+    const courseHeaderInfo = document.getElementById('courseHeaderInfo');
+    const courseHeaderName = document.getElementById('courseHeaderName');
+    const courseHeaderMeta = document.getElementById('courseHeaderMeta');
+
+    async function renderHoleList(courseId) {
+      const holesSection = document.querySelector('.holes-section');
+      if (!holesSection) return;
+
+      holesSection.innerHTML = `
+        <h2>Holes</h2>
+        <p class="state-loading">Loading holes…</p>
+      `;
+
+      try {
+        const holes = await loadHoles(courseId);
+
+        if (!holes || holes.length === 0) {
+          holesSection.innerHTML = `
+            <h2>Holes</h2>
+            <div class="state-empty">
+              <p class="state-empty-heading">No holes available</p>
+              <p class="state-empty-body">This course doesn't have hole data yet. Return to the course list and try importing a different course package.</p>
+            </div>
+          `;
+          return;
+        }
+
+        const sorted = [...holes].sort((a, b) => a.hole - b.hole);
+
+        const rows = sorted.map(h => `
+          <a href="${buildHoleHref(escapeHtml(courseId), h.hole)}" class="hole-list-row">
+            <div class="hole-row-header">
+              <span>Hole ${h.hole}</span>
+              <span>›</span>
+            </div>
+            <div class="hole-row-meta">Par ${h.par} · Stroke index ${h.strokeIndex}</div>
+          </a>
+        `).join('');
+
+        holesSection.innerHTML = `
+          <h2>Holes</h2>
+          <div class="hole-list">${rows}</div>
+        `;
+      } catch (error) {
+        console.error('Error loading holes:', error);
+        holesSection.innerHTML = `
+          <h2>Holes</h2>
+          <div class="state-error">
+            <p class="state-error-heading">Couldn't load holes</p>
+            <p class="state-error-body">
+              Check your connection and try again, or return to the course list to import a new course package.
+            </p>
+          </div>
+        `;
+      }
+    }
+
+    async function initializePage() {
+      try {
+        // Parse query id
+        const params = new URLSearchParams(window.location.search);
+        const courseId = params.get('id');
+
+        // Fetch courses
+        const courses = await loadCourses();
+
+        // Resolve course
+        const course = courseId ? getCourseById(courses, courseId) : null;
+
+        if (!course) {
+          // Error state for missing or unknown course
+          courseContent.innerHTML = `
+            <div class="error-message">
+              <p>Course not found. <a href="index.html">Return to course list</a> and try importing or selecting a different course.</p>
+            </div>
+          `;
+          document.title = 'Course not found — BanGuide';
+          courseHeaderInfo?.setAttribute('hidden', 'hidden');
+          return;
+        }
+
+        // Update page title
+        document.title = `${course.name} — BanGuide`;
+
+        if (courseHeaderInfo && courseHeaderName && courseHeaderMeta) {
+          courseHeaderName.textContent = course.name;
+          courseHeaderMeta.textContent = `${course.address || ''}${course.address ? ' · ' : ''}${course.holes} holes · Par ${course.par}`;
+          courseHeaderInfo.removeAttribute('hidden');
+        }
+
+        // Render course detail
+        courseContent.innerHTML = `
+          <div class="course-detail">
+            <section class="holes-section">
+              <h2>Holes</h2>
+              <div class="holes-placeholder">
+                <p>Loading holes…</p>
+              </div>
+            </section>
+          </div>
+        `;
+
+        // Load and render hole list asynchronously
+        await renderHoleList(courseId);
+      } catch (error) {
+        // Error state for fetch failure
+        console.error('Error loading course:', error);
+        courseContent.innerHTML = `
+          <div class="error-message">
+            <p>Couldn't load course data. <a href="index.html">Return to course list</a> and try again or import a new course.</p>
+          </div>
+        `;
+        document.title = 'Error — BanGuide';
+        courseHeaderInfo?.setAttribute('hidden', 'hidden');
+      }
+    }
+
+    /**
+     * Escape HTML special characters to prevent XSS
+     * @param {string} text - Text to escape
+     * @returns {string} Escaped text
+     */
+    function escapeHtml(text) {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return String(text).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    registerServiceWorker();
+
+    // Initialize on page load
+    initializePage();
+  </script>
+</body>
+</html>
