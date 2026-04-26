@@ -28,6 +28,13 @@
               <input type="number" id="newClubmeters" class="club-input club-input--meters" placeholder="meters" min="1" max="366" autocomplete="off">
               <button type="submit" class="club-add-btn">Add</button>
             </form>
+            <section class="gps-debug" aria-label="GPS debug">
+              <p class="gps-status" id="gpsStatus">GPS is off.</p>
+              <button id="gpsSetAnchorBtn" class="map-calibration__start" type="button" hidden>Set anchor on map</button>
+              <button id="gpsClearAnchorBtn" class="map-calibration__cancel" type="button" hidden>Clear anchor</button>
+              <button id="gpsSimulateBtn" class="map-calibration__start" type="button">Simulate GPS walk</button>
+              <p id="gpsSimulateStatus" class="gps-simulation__status" hidden></p>
+            </section>
             <section class="map-calibration" aria-label="Map scale calibration">
               <button id="startCalibrationBtn" class="map-calibration__start" type="button">Calibrate map scale</button>
               <div id="mapCalibrationPanel" class="map-calibration__panel" hidden>
@@ -73,6 +80,7 @@
     import { loadClubs, addClub, updateClub, deleteClub } from './js/clubs.js';
     import { listCourseRounds, getActiveRound, setActiveRound, createRound, updateRoundHoleStrokes, getRoundSummary, getScorecardSections } from './js/scorecards.js';
     import { initDistanceOverlay } from './js/overlay.js';
+    import { initGPS, destroyGPS, isSimulationActive, loadAnchor, clearAnchor, getGPSState } from './js/gps.js';
     import { initMeasurement } from './js/measurement.js';
     import { registerServiceWorker } from './js/offline.js';
 
@@ -91,6 +99,11 @@
     const clubSettingsPanel = document.getElementById('clubSettingsPanel');
     const prevHole = document.getElementById('prevHole');
     const nextHole = document.getElementById('nextHole');
+    const gpsStatus = document.getElementById('gpsStatus');
+    const gpsSetAnchorBtn = document.getElementById('gpsSetAnchorBtn');
+    const gpsClearAnchorBtn = document.getElementById('gpsClearAnchorBtn');
+    const gpsSimulateBtn = document.getElementById('gpsSimulateBtn');
+    const gpsSimulateStatus = document.getElementById('gpsSimulateStatus');
     const MAP_CALIBRATION_STORAGE_KEY = 'banguide_map_calibration_v1';
     const HOLE_NAV_TRANSITION_MS = 180;
     const ROUND_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
@@ -101,6 +114,7 @@
     });
     let holeNavigationInFlight = false;
     let measurement = null;
+    let gpsController = null;
 
     function prefersReducedMotion() {
       return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -147,6 +161,10 @@
       closeClubSettingsPanel();
       if (measurement) {
         measurement.stop();
+      }
+      if (gpsController) {
+        gpsController.destroy();
+        gpsController = null;
       }
       holeNav?.setAttribute('aria-disabled', 'true');
       document.body.classList.remove('is-entering');
@@ -393,6 +411,7 @@
         const savedmetersPerPixel = loadCalibrationmetersPerPixel(courseId, hole.hole);
         const hasDefaultScale = Number.isFinite(defaultmetersPerPixel) && defaultmetersPerPixel > 0;
         const isImportedCourse = courseId && courseId.startsWith('import-');
+        const holeOrientation = Number(holeMapConfig?.orientation) || 0;
         let courseRounds = listCourseRounds(courseId);
         let activeRound = getActiveRound(courseId);
 
@@ -566,6 +585,9 @@
             <div id="holeMap" class="hole-map hole-map--loading" aria-label="Hole map"></div>
             <div id="mapCalibrationWarning" class="map-calibration-warning" role="status" aria-live="polite" hidden>
               Calibration needed: distance overlays may be inaccurate.
+            </div>
+            <div id="gpsStatusBanner" class="gps-status-banner" role="status" aria-live="polite" hidden>
+              <span id="gpsStatusText">GPS active</span>
             </div>
             <div id="measurementActions" class="measurement-actions" hidden>
               <button id="clearMeasurementBtn" class="overlay-toggle-btn" type="button" aria-label="Clear measurement">Clear measurement</button>
@@ -877,6 +899,20 @@
           });
 
           calibrationClickHandler = (event) => {
+            if (gpsController?.isSettingAnchor) {
+              const latlng = event.latlng;
+              const mpp = Number.isFinite(currentmetersPerPixel) && currentmetersPerPixel > 0 ? currentmetersPerPixel : 1;
+              const pixelX = latlng.lng / mpp;
+              const pixelY = latlng.lat / mpp;
+              const state = getGPSState();
+              const anchorLat = state.currentLatLng?.lat ?? 59.3;
+              const anchorLng = state.currentLatLng?.lng ?? 18.0;
+              gpsController.setAnchor(anchorLat, anchorLng, pixelX, pixelY);
+              gpsController.setAnchorMode(false);
+              updateGPSUI();
+              return;
+            }
+
             if (!isCalibrating) {
               return;
             }
@@ -895,6 +931,119 @@
           renderCalibrationLayer();
           updateCalibrationStatusMessage();
           setCalibrationMode(isCalibrating);
+
+          // ─── GPS setup ───
+          if (gpsController) {
+            gpsController.destroy();
+            gpsController = null;
+          }
+
+          console.log('Initializing GPS controller with orientation:', holeOrientation, 'and metersPerPixel:', currentmetersPerPixel);
+          gpsController = initGPS({
+            map: leafletMap,
+            courseId,
+            holeNumber: hole.hole,
+            orientation: holeOrientation,
+            metersPerPixel: Number.isFinite(currentmetersPerPixel) ? currentmetersPerPixel : 1,
+            onPosition: () => {
+              updateGPSUI();
+            },
+          });
+
+          updateGPSUI();
+        }
+
+        function updateGPSUI() {
+          const st = getGPSState();
+          const hasAnchor = !!st.anchor;
+
+          if (gpsStatus) {
+            if (st.isSimulating) {
+              const latStr = st.currentLatLng?.lat?.toFixed(5) ?? '-';
+              const lngStr = st.currentLatLng?.lng?.toFixed(5) ?? '-';
+              gpsStatus.textContent = `Simulating GPS… lat ${latStr}, lng ${lngStr}`;
+            } else if (hasAnchor) {
+              gpsStatus.textContent = 'GPS active — anchor set.';
+            } else {
+              gpsStatus.textContent = 'GPS on.';
+            }
+          }
+
+          if (gpsSetAnchorBtn) {
+            gpsSetAnchorBtn.hidden = hasAnchor;
+          }
+          if (gpsClearAnchorBtn) {
+            gpsClearAnchorBtn.hidden = !hasAnchor;
+          }
+          if (gpsSimulateBtn) {
+            gpsSimulateBtn.textContent = st.isSimulating ? 'Stop simulation' : 'Simulate GPS walk';
+            gpsSimulateBtn.classList.toggle('map-calibration__start--active', st.isSimulating);
+          }
+          if (gpsSimulateStatus) {
+            gpsSimulateStatus.hidden = !st.isSimulating;
+            if (st.isSimulating) {
+              gpsSimulateStatus.textContent = 'Walking fairway…';
+            }
+          }
+
+          const banner = document.getElementById('gpsStatusBanner');
+          const bannerText = document.getElementById('gpsStatusText');
+          if (banner && bannerText) {
+            if (st.isSimulating) {
+              banner.removeAttribute('hidden');
+              bannerText.textContent = 'GPS simulating';
+            } else if (hasAnchor) {
+              banner.removeAttribute('hidden');
+              bannerText.textContent = 'GPS active';
+            } else {
+              banner.setAttribute('hidden', '');
+            }
+          }
+        }
+
+        if (gpsSetAnchorBtn) {
+          gpsSetAnchorBtn.addEventListener('click', () => {
+            if (!gpsController) return;
+            gpsController.setAnchorMode(true);
+            closeClubSettingsPanel();
+            if (gpsStatus) {
+              gpsStatus.textContent = 'Tap the map to set your current position.';
+            }
+          });
+        }
+
+        if (gpsClearAnchorBtn) {
+          gpsClearAnchorBtn.addEventListener('click', () => {
+            if (!gpsController) return;
+            clearAnchor(courseId, hole.hole);
+            if (gpsController) {
+              gpsController.destroy();
+              gpsController = null;
+            }
+            if (leafletMap) {
+              gpsController = initGPS({
+                map: leafletMap,
+                courseId,
+                holeNumber: hole.hole,
+                orientation: holeOrientation,
+                metersPerPixel: Number.isFinite(currentmetersPerPixel) ? currentmetersPerPixel : 1,
+                onPosition: () => updateGPSUI(),
+              });
+            }
+            updateGPSUI();
+          });
+        }
+
+        if (gpsSimulateBtn) {
+          gpsSimulateBtn.addEventListener('click', () => {
+            if (!gpsController) return;
+            if (isSimulationActive()) {
+              gpsController.stopSimulation();
+            } else {
+              gpsController.startSimulation();
+            }
+            updateGPSUI();
+          });
         }
 
         clearOverlayBtn.addEventListener('click', () => {

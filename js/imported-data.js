@@ -91,27 +91,30 @@ function mapTees(teesObject) {
  * @param {Object} sourceHole - Hole object from holes.json with { hole, par, index, tees }
  * @param {string} courseId - Course ID for reference
  * @param {Object} calibrationByHole - Optional map of hole_num → metersPerPixel values
+ * @param {Object} orientationByHole - Optional map of hole_num → orientation (degrees) values
  * @returns {Object} Normalized hole object for runtime consumption
  */
-function normalizeHole(sourceHole, courseId, calibrationByHole = {}) {
+function normalizeHole(sourceHole, courseId, calibrationByHole = {}, orientationByHole = {}) {
   const mapped = mapTees(sourceHole.tees);
-  
+
   return {
     hole: sourceHole.hole,
     par: sourceHole.par,
     strokeIndex: sourceHole.index,
     courseId: courseId,
-    // Runtime distances: blue, yellow, red (no white)
+    // Runtime distances: include white when available (4+ tees)
     distances: {
+      white: mapped.white || undefined,
       blue: mapped.blue || undefined,
       yellow: mapped.yellow || undefined,
       red: mapped.red || undefined
     },
-    // Map metadata with optional calibration
+    // Map metadata with optional calibration and orientation
     map: {
       // image reference will be set by caller
       // widthPx and heightPx will be known after image loads
-      metersPerPixel: calibrationByHole[sourceHole.hole] || undefined
+      metersPerPixel: calibrationByHole[sourceHole.hole] || undefined,
+      orientation: orientationByHole[sourceHole.hole] || undefined
     }
   };
 }
@@ -218,6 +221,53 @@ async function parseCalibrationJson(files) {
 }
 
 /**
+ * Parse orientation.json from FileList
+ * @param {FileList} files - Browser FileList from import
+ * @returns {Promise<Object>} Map of hole_num → orientation (degrees)
+ */
+async function parseOrientationJson(files) {
+  let orientationJsonFile = null;
+
+  for (let file of files) {
+    if (basename(file.__archivePath || file.name) === 'orientation.json') {
+      orientationJsonFile = file;
+      break;
+    }
+  }
+
+  if (!orientationJsonFile) {
+    return {}; // Orientation is optional
+  }
+
+  try {
+    const text = await orientationJsonFile.text();
+    const orientationData = JSON.parse(text);
+
+    if (!orientationData || typeof orientationData !== 'object' || Array.isArray(orientationData)) {
+      throw new Error('orientation.json must contain an object keyed by hole, e.g. hole_1');
+    }
+
+    // Map hole numbers to orientation values for runtime compatibility
+    const byHole = {};
+    for (const [holeKey, item] of Object.entries(orientationData)) {
+      if (!item || typeof item !== 'object') {
+        throw new Error(`orientation.json entry ${holeKey} must be an object`);
+      }
+
+      if (typeof item.hole_num !== 'number' || typeof item.clockwise_from_template_up_deg !== 'number') {
+        throw new Error(`orientation.json entry ${holeKey} must include numeric hole_num and clockwise_from_template_up_deg`);
+      }
+
+      byHole[item.hole_num] = item.clockwise_from_template_up_deg;
+    }
+
+    return byHole;
+  } catch (error) {
+    throw new Error(`Failed to parse orientation.json: ${error.message}`);
+  }
+}
+
+/**
  * Import and persist a course package from browser FileList
  * @param {FileList} files - Browser-selected course package files
  * @param {string} courseId - ID for the imported course (e.g., 'my-course-import')
@@ -233,17 +283,20 @@ export async function importAndPersistCourse(files, courseId, courseName) {
   if (!importFiles || importFiles.length === 0) {
     throw new Error('No files found in import package');
   }
-  
+
   const db = await initDB();
-  
+
   // Parse holes.json
   const sourceHoles = await parseHolesJson(importFiles);
-  
+
   // Extract image files
   const imagesByHole = extractImages(importFiles);
-  
+
   // Parse calibration.json (optional)
   const calibrationByHole = await parseCalibrationJson(importFiles);
+
+  // Parse orientation.json (optional)
+  const orientationByHole = await parseOrientationJson(importFiles);
   
   // Validate package has holes and at least one hole has an image
   if (sourceHoles.length === 0) {
@@ -273,7 +326,7 @@ export async function importAndPersistCourse(files, courseId, courseName) {
   
   // Normalize and store holes
   for (const sourceHole of sourceHoles) {
-    const normalized = normalizeHole(sourceHole, courseId, calibrationByHole);
+    const normalized = normalizeHole(sourceHole, courseId, calibrationByHole, orientationByHole);
     
     await new Promise((resolve, reject) => {
       const tx = db.transaction([HOLES_STORE], 'readwrite');

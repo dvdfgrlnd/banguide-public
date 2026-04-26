@@ -784,3 +784,40 @@ button.scorecard-stepper__value {
   backdrop-filter: blur(1.5px);
   -webkit-backdrop-filter: blur(1.5px);
 }
+
+/* GPS layer */
+.gps-status-banner {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  z-index: 425;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0d3b66;
+  background: rgba(214, 242, 255, 0.96);
+  border: 1px solid #90cdf4;
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  max-width: min(68%, 320px);
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.gps-status {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.gps-simulation__status {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  margin: 0;
+}
+
+.gps-debug {
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  display: grid;
+  gap: var(--space-sm);
+}
