@@ -1,19 +1,20 @@
-const LONG_PRESS_MS = 500;
 const HINT_START = 'Tap start point';
 const HINT_END = 'Tap end point';
 const HINT_AGAIN = 'Tap to measure again';
+const TAP_DELAY_MS = 300;
 
-export function initMeasurement({ map, isCalibrated, onStateChange = () => {} }) {
+export function initMeasurement({ map, isCalibrated, onStateChange = () => {}, shouldHandleClick = () => true }) {
   let measurePoints = [];
   const layerGroup = L.layerGroup().addTo(map);
   let isActive = false;
   let destroyed = false;
 
-  let _pressTimer = null;
-  let _pressStartPos = null;
-  let _longPressPointerId = null;
-  let _activePointers = new Set();
-  let _suppressNextTap = false;
+  let _tapPending = false;
+  let _tapPointerId = null;
+  let _tapStartPos = null;
+  let _tapDelayTimer = null;
+
+  const container = map.getContainer();
 
   function renderLayer() {
     layerGroup.clearLayers();
@@ -91,22 +92,6 @@ export function initMeasurement({ map, isCalibrated, onStateChange = () => {} })
     }
   }
 
-  function clearPendingLongPress() {
-    clearTimeout(_pressTimer);
-    _pressTimer = null;
-    _pressStartPos = null;
-    _longPressPointerId = null;
-  }
-
-  function clearTapSuppression() {
-    _suppressNextTap = false;
-  }
-
-  function resetGestureState() {
-    _activePointers = new Set();
-    clearPendingLongPress();
-  }
-
   function clientPointToMapLatLng(clientX, clientY) {
     const rect = container.getBoundingClientRect();
     const containerPoint = L.point(clientX - rect.left, clientY - rect.top);
@@ -114,30 +99,36 @@ export function initMeasurement({ map, isCalibrated, onStateChange = () => {} })
   }
 
   function onPointerDown(e) {
-    if (!isActive || !isCalibrated() || destroyed) return;
-    _activePointers.add(e.pointerId);
+    if (!isActive || destroyed || !isCalibrated()) return;
+    if (!e.isPrimary || e.button !== 0) return;
 
-    if (!e.isPrimary || e.button !== 0 || _activePointers.size !== 1) {
-      clearPendingLongPress();
+    cancelPendingTap();
+
+    _tapPending = true;
+    _tapPointerId = e.pointerId;
+    _tapStartPos = { x: e.clientX, y: e.clientY };
+  }
+
+  function onPointerUp(e) {
+    if (!_tapPending || e.pointerId !== _tapPointerId) return;
+
+    _tapPending = false;
+    _tapPointerId = null;
+
+    if (typeof shouldHandleClick === 'function' && shouldHandleClick() === false) {
       return;
     }
 
-    _pressStartPos = { x: e.clientX, y: e.clientY };
-    _longPressPointerId = e.pointerId;
-    _pressTimer = setTimeout(() => {
-      _pressTimer = null;
-      if (
-        !isActive
-        || destroyed
-        || !_activePointers.has(_longPressPointerId)
-        || _activePointers.size !== 1
-      ) {
-        _pressStartPos = null;
-        _longPressPointerId = null;
-        return;
-      }
+    const dx = e.clientX - _tapStartPos.x;
+    const dy = e.clientY - _tapStartPos.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 8) {
+      return;
+    }
 
-      const latlng = clientPointToMapLatLng(_pressStartPos.x, _pressStartPos.y);
+    const latlng = clientPointToMapLatLng(e.clientX, e.clientY);
+
+    _tapDelayTimer = setTimeout(() => {
+      _tapDelayTimer = null;
       if (measurePoints.length >= 2) measurePoints = [];
       measurePoints.push(latlng);
       renderLayer();
@@ -147,43 +138,19 @@ export function initMeasurement({ map, isCalibrated, onStateChange = () => {} })
       } else if (measurePoints.length === 2) {
         emitState(HINT_AGAIN);
       }
-
-      // Leaflet may emit a click after long-press release; suppress that one
-      // so club overlay tap logic is not triggered.
-      _suppressNextTap = true;
-
-      _pressStartPos = null;
-      _longPressPointerId = null;
-    }, LONG_PRESS_MS);
-  }
-
-  function onPointerUp(e) {
-    _activePointers.delete(e.pointerId);
-    if (_longPressPointerId === e.pointerId) {
-      clearPendingLongPress();
-    }
-  }
-
-  function onPointerMove(e) {
-    if (!_pressTimer || !_pressStartPos || e.pointerId !== _longPressPointerId) return;
-
-    const dx = e.clientX - _pressStartPos.x;
-    const dy = e.clientY - _pressStartPos.y;
-    if (Math.sqrt(dx * dx + dy * dy) > 8) {
-      clearPendingLongPress();
-    }
+    }, TAP_DELAY_MS);
   }
 
   function onPointerCancel(e) {
-    _activePointers.delete(e.pointerId);
-    clearPendingLongPress();
+    if (e.pointerId === _tapPointerId) {
+      _tapPending = false;
+      _tapPointerId = null;
+    }
   }
 
-  const container = map.getContainer();
   container.addEventListener('pointerdown', onPointerDown);
   container.addEventListener('pointerup', onPointerUp);
   container.addEventListener('pointercancel', onPointerCancel);
-  container.addEventListener('pointermove', onPointerMove);
 
   function clearMeasurementLayer() {
     measurePoints = [];
@@ -201,18 +168,22 @@ export function initMeasurement({ map, isCalibrated, onStateChange = () => {} })
 
   function start() {
     if (destroyed) return;
-    clearTapSuppression();
     isActive = true;
     clearMeasurementLayer();
     emitState(HINT_START);
   }
 
   function stop() {
-    resetGestureState();
-    clearTapSuppression();
     isActive = false;
     clearMeasurementLayer();
     emitState('');
+  }
+
+  function cancelPendingTap() {
+    if (_tapDelayTimer) {
+      clearTimeout(_tapDelayTimer);
+      _tapDelayTimer = null;
+    }
   }
 
   function destroy() {
@@ -220,13 +191,11 @@ export function initMeasurement({ map, isCalibrated, onStateChange = () => {} })
       return;
     }
     destroyed = true;
-    resetGestureState();
-    clearTapSuppression();
     isActive = false;
     container.removeEventListener('pointerdown', onPointerDown);
     container.removeEventListener('pointerup', onPointerUp);
     container.removeEventListener('pointercancel', onPointerCancel);
-    container.removeEventListener('pointermove', onPointerMove);
+    cancelPendingTap();
     clearMeasurementLayer();
     if (map.hasLayer(layerGroup)) {
       map.removeLayer(layerGroup);
@@ -242,15 +211,7 @@ export function initMeasurement({ map, isCalibrated, onStateChange = () => {} })
     emitState(HINT_START);
   }
 
-  function consumeSuppressedTap() {
-    if (!_suppressNextTap) {
-      return false;
-    }
-    _suppressNextTap = false;
-    return true;
-  }
-
   start();
 
-  return { start, stop, clear, destroy, consumeSuppressedTap };
+  return { start, stop, clear, destroy, cancelPendingTap };
 }

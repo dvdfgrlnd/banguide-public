@@ -513,11 +513,14 @@ button.scorecard-stepper__value {
   z-index: 420;
 }
 
-.measurement-actions {
+.map-top-right-actions {
   position: absolute;
   top: var(--space-sm);
   right: var(--space-sm);
   z-index: 430;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
 .map-calibration-warning {
@@ -548,6 +551,17 @@ button.scorecard-stepper__value {
   cursor: pointer;
   line-height: 1.4;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+}
+
+.overlay-toggle-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.overlay-toggle-btn--active {
+  background: rgba(31, 120, 180, 0.12);
+  border-color: #1f78b4;
+  color: #1f78b4;
 }
 
 /* Overlay circle inline labels (Leaflet divIcon) */
@@ -751,6 +765,8 @@ button.scorecard-stepper__value {
   color: var(--color-text);
 }
 
+.map-calibration__start:disabled,
+.map-calibration__cancel:disabled,
 .map-calibration__reset:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -786,23 +802,6 @@ button.scorecard-stepper__value {
 }
 
 /* GPS layer */
-.gps-status-banner {
-  position: absolute;
-  top: var(--space-sm);
-  left: var(--space-sm);
-  z-index: 425;
-  font-size: 12px;
-  font-weight: 600;
-  color: #0d3b66;
-  background: rgba(214, 242, 255, 0.96);
-  border: 1px solid #90cdf4;
-  border-radius: var(--radius-sm);
-  padding: 6px 10px;
-  max-width: min(68%, 320px);
-  line-height: 1.35;
-  pointer-events: none;
-}
-
 .gps-status {
   font-size: var(--font-size-sm);
   color: var(--color-muted);

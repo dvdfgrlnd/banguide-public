@@ -80,8 +80,9 @@
     import { loadClubs, addClub, updateClub, deleteClub } from './js/clubs.js';
     import { listCourseRounds, getActiveRound, setActiveRound, createRound, updateRoundHoleStrokes, getRoundSummary, getScorecardSections } from './js/scorecards.js';
     import { initDistanceOverlay } from './js/overlay.js';
-    import { initGPS, destroyGPS, isSimulationActive, loadAnchor, clearAnchor, getGPSState } from './js/gps.js';
+    import { initGPS, destroyGPS, isSimulationActive, loadAnchor, clearAnchor, getGPSState, latLngToMapPixel } from './js/gps.js';
     import { initMeasurement } from './js/measurement.js';
+    import { initDoubleTapZoom } from './js/double-tap-zoom.js';
     import { registerServiceWorker } from './js/offline.js';
 
     const holeContent = document.getElementById('holeContent');
@@ -115,9 +116,28 @@
     let holeNavigationInFlight = false;
     let measurement = null;
     let gpsController = null;
+    const GPS_ACTIVE_STORAGE_KEY = 'banguide_gps_active';
+    let gpsActive = false;
 
     function prefersReducedMotion() {
       return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    function loadGPSActive() {
+      try {
+        const raw = localStorage.getItem(GPS_ACTIVE_STORAGE_KEY);
+        return raw === 'true';
+      } catch {
+        return false;
+      }
+    }
+
+    function saveGPSActive(value) {
+      try {
+        localStorage.setItem(GPS_ACTIVE_STORAGE_KEY, value ? 'true' : 'false');
+      } catch {
+        // ignore
+      }
     }
 
     function getHoleNavDelay() {
@@ -586,11 +606,13 @@
             <div id="mapCalibrationWarning" class="map-calibration-warning" role="status" aria-live="polite" hidden>
               Calibration needed: distance overlays may be inaccurate.
             </div>
-            <div id="gpsStatusBanner" class="gps-status-banner" role="status" aria-live="polite" hidden>
-              <span id="gpsStatusText">GPS active</span>
-            </div>
-            <div id="measurementActions" class="measurement-actions" hidden>
-              <button id="clearMeasurementBtn" class="overlay-toggle-btn" type="button" aria-label="Clear measurement">Clear measurement</button>
+            <div class="map-top-right-actions">
+              <div id="gpsClubLinesActions">
+                <button id="toggleGPSClubLinesBtn" class="overlay-toggle-btn" type="button" aria-label="Enable GPS and show club radius lines">Enable GPS</button>
+              </div>
+              <div id="measurementActions" hidden>
+                <button id="clearMeasurementBtn" class="overlay-toggle-btn" type="button" aria-label="Clear measurement">Clear measurement</button>
+              </div>
             </div>
             <div id="overlayToggle" class="overlay-toggle-row" hidden>
               <button id="clearOverlayBtn" class="overlay-toggle-btn" type="button" aria-label="Clear club radius lines" hidden>Clear club lines</button>
@@ -666,6 +688,7 @@
 
         let overlay = null;
         let leafletMap = null;
+        let doubleTapZoom = null;
         let calibrationLayer = null;
         let calibrationPoints = [];
         let calibrationClickHandler = null;
@@ -674,6 +697,8 @@
         const calibrationWarning = document.getElementById('mapCalibrationWarning');
         const measurementActions = document.getElementById('measurementActions');
         const clearMeasurementBtn = document.getElementById('clearMeasurementBtn');
+        const gpsClubLinesActions = document.getElementById('gpsClubLinesActions');
+        const toggleGPSClubLinesBtn = document.getElementById('toggleGPSClubLinesBtn');
         const toggleRow = document.getElementById('overlayToggle');
         const clearOverlayBtn = document.getElementById('clearOverlayBtn');
 
@@ -851,6 +876,11 @@
             leafletMap.off('click', calibrationClickHandler);
           }
 
+          if (doubleTapZoom) {
+            doubleTapZoom.destroy();
+            doubleTapZoom = null;
+          }
+
           leafletMap = initHoleMap({
             container: holeMapContainer,
             hole: hole,
@@ -869,10 +899,7 @@
             map: leafletMap,
             getClubs: loadClubs,
             shouldHandleTap: () => {
-              // Ignore the synthetic click that can follow a long-press
-              // used for measurement point placement.
-              if (measurement?.consumeSuppressedTap?.()) return false;
-              // Disable overlay taps if currently calibrating
+              // Disable overlay long-press if currently calibrating
               if (isCalibrating) return false;
               // Disable overlay for uncalibrated imported maps
               if (isImportedCourse && !Number.isFinite(currentmetersPerPixel)) {
@@ -880,6 +907,18 @@
                 return false;
               }
               return true;
+            },
+            onLongPress() {
+              if (gpsActive) {
+                gpsActive = false;
+                saveGPSActive(false);
+                if (gpsController) {
+                  gpsController.destroy();
+                  gpsController = null;
+                }
+                updateGPSClubLinesUI();
+                updateGPSUI();
+              }
             },
             onRender({ canClear }) {
               if (canClear) {
@@ -896,7 +935,16 @@
             map: leafletMap,
             isCalibrated: () => !isImportedCourse || Number.isFinite(currentmetersPerPixel),
             onStateChange: updateMeasurementActions,
+            shouldHandleClick: () => {
+              // Ignore the synthetic click that follows an overlay long-press
+              if (overlay?.consumeSuppressedTap?.()) return false;
+              return true;
+            },
           });
+
+          if (leafletMap) {
+            doubleTapZoom = initDoubleTapZoom({ map: leafletMap, measurement });
+          }
 
           calibrationClickHandler = (event) => {
             if (gpsController?.isSettingAnchor) {
@@ -938,19 +986,27 @@
             gpsController = null;
           }
 
-          console.log('Initializing GPS controller with orientation:', holeOrientation, 'and metersPerPixel:', currentmetersPerPixel);
-          gpsController = initGPS({
-            map: leafletMap,
-            courseId,
-            holeNumber: hole.hole,
-            orientation: holeOrientation,
-            metersPerPixel: Number.isFinite(currentmetersPerPixel) ? currentmetersPerPixel : 1,
-            onPosition: () => {
-              updateGPSUI();
-            },
-          });
+          if (gpsActive) {
+            console.log('Initializing GPS controller with orientation:', holeOrientation, 'and metersPerPixel:', currentmetersPerPixel);
+            gpsController = initGPS({
+              map: leafletMap,
+              courseId,
+              holeNumber: hole.hole,
+              orientation: holeOrientation,
+              metersPerPixel: Number.isFinite(currentmetersPerPixel) ? currentmetersPerPixel : 1,
+              onPosition: handleGPSPosition,
+            });
+          }
 
           updateGPSUI();
+        }
+
+        function updateGPSClubLinesUI() {
+          if (toggleGPSClubLinesBtn) {
+            toggleGPSClubLinesBtn.textContent = gpsActive ? 'Disable GPS' : 'Enable GPS';
+            toggleGPSClubLinesBtn.setAttribute('aria-label', gpsActive ? 'Disable GPS and hide club radius lines' : 'Enable GPS and show club radius lines');
+            toggleGPSClubLinesBtn.classList.toggle('overlay-toggle-btn--active', gpsActive);
+          }
         }
 
         function updateGPSUI() {
@@ -963,7 +1019,9 @@
               const lngStr = st.currentLatLng?.lng?.toFixed(5) ?? '-';
               gpsStatus.textContent = `Simulating GPS… lat ${latStr}, lng ${lngStr}`;
             } else if (hasAnchor) {
-              gpsStatus.textContent = 'GPS active — anchor set.';
+              const latStr = st.currentLatLng?.lat?.toFixed(5) ?? '-';
+              const lngStr = st.currentLatLng?.lng?.toFixed(5) ?? '-';
+              gpsStatus.textContent = `GPS active (${latStr}, ${lngStr}) — anchor set.`;
             } else {
               gpsStatus.textContent = 'GPS on.';
             }
@@ -971,9 +1029,11 @@
 
           if (gpsSetAnchorBtn) {
             gpsSetAnchorBtn.hidden = hasAnchor;
+            gpsSetAnchorBtn.disabled = !gpsActive;
           }
           if (gpsClearAnchorBtn) {
             gpsClearAnchorBtn.hidden = !hasAnchor;
+            gpsClearAnchorBtn.disabled = !gpsActive;
           }
           if (gpsSimulateBtn) {
             gpsSimulateBtn.textContent = st.isSimulating ? 'Stop simulation' : 'Simulate GPS walk';
@@ -986,19 +1046,7 @@
             }
           }
 
-          const banner = document.getElementById('gpsStatusBanner');
-          const bannerText = document.getElementById('gpsStatusText');
-          if (banner && bannerText) {
-            if (st.isSimulating) {
-              banner.removeAttribute('hidden');
-              bannerText.textContent = 'GPS simulating';
-            } else if (hasAnchor) {
-              banner.removeAttribute('hidden');
-              bannerText.textContent = 'GPS active';
-            } else {
-              banner.setAttribute('hidden', '');
-            }
-          }
+          updateGPSClubLinesUI();
         }
 
         if (gpsSetAnchorBtn) {
@@ -1012,6 +1060,18 @@
           });
         }
 
+        function handleGPSPosition({ lat, lng, anchor }) {
+          updateGPSUI();
+
+          if (gpsActive && overlay && anchor && Number.isFinite(currentmetersPerPixel)) {
+            const mpp = currentmetersPerPixel || 1;
+            const pixel = latLngToMapPixel(lat, lng, anchor, holeOrientation, mpp);
+            if (pixel) {
+              overlay.setCenter({ lat: pixel.y * mpp, lng: pixel.x * mpp });
+            }
+          }
+        }
+
         if (gpsClearAnchorBtn) {
           gpsClearAnchorBtn.addEventListener('click', () => {
             if (!gpsController) return;
@@ -1020,14 +1080,17 @@
               gpsController.destroy();
               gpsController = null;
             }
-            if (leafletMap) {
+            if (overlay) {
+              overlay.clear();
+            }
+            if (leafletMap && gpsActive) {
               gpsController = initGPS({
                 map: leafletMap,
                 courseId,
                 holeNumber: hole.hole,
                 orientation: holeOrientation,
                 metersPerPixel: Number.isFinite(currentmetersPerPixel) ? currentmetersPerPixel : 1,
-                onPosition: () => updateGPSUI(),
+                onPosition: handleGPSPosition,
               });
             }
             updateGPSUI();
@@ -1041,6 +1104,44 @@
               gpsController.stopSimulation();
             } else {
               gpsController.startSimulation();
+            }
+            updateGPSUI();
+          });
+        }
+
+        if (toggleGPSClubLinesBtn) {
+          toggleGPSClubLinesBtn.addEventListener('click', () => {
+            gpsActive = !gpsActive;
+            saveGPSActive(gpsActive);
+            updateGPSClubLinesUI();
+
+            if (gpsActive) {
+              if (leafletMap && !gpsController) {
+                gpsController = initGPS({
+                  map: leafletMap,
+                  courseId,
+                  holeNumber: hole.hole,
+                  orientation: holeOrientation,
+                  metersPerPixel: Number.isFinite(currentmetersPerPixel) ? currentmetersPerPixel : 1,
+                  onPosition: handleGPSPosition,
+                });
+              }
+              const st = getGPSState();
+              if (st.currentLatLng && st.anchor && overlay && Number.isFinite(currentmetersPerPixel)) {
+                const mpp = currentmetersPerPixel || 1;
+                const pixel = latLngToMapPixel(st.currentLatLng.lat, st.currentLatLng.lng, st.anchor, holeOrientation, mpp);
+                if (pixel) {
+                  overlay.setCenter({ lat: pixel.y * mpp, lng: pixel.x * mpp });
+                }
+              }
+            } else {
+              if (gpsController) {
+                gpsController.destroy();
+                gpsController = null;
+              }
+              if (overlay) {
+                overlay.clear();
+              }
             }
             updateGPSUI();
           });
@@ -1137,6 +1238,7 @@
 
         updateCalibrationStatusMessage();
         setCalibrationMode(false);
+        gpsActive = loadGPSActive();
         setupMap();
 
         function renderClubList() {
