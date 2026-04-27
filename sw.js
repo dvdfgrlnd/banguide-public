@@ -1,7 +1,7 @@
 const DEV_MODE = false; // Set to false for production
 
-const APP_CACHE = 'banguide-v15';
-const RUNTIME_CACHE = 'banguide-runtime-v15';
+const APP_CACHE = 'banguide-v16';
+const RUNTIME_CACHE = 'banguide-runtime-v16';
 
 const SHELL_ASSETS = [
   './',

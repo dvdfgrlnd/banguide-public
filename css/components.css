@@ -18,91 +18,10 @@
   gap: var(--space-sm);
 }
 
-.page-header__actions--compact {
-  justify-content: flex-start;
-  flex-wrap: nowrap;
-}
-
-.page-header__actions--compact .back-nav {
-  margin: 0;
-  padding: var(--space-sm) var(--space-sm);
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-}
-
-.page-header__actions--compact .header-settings {
-  margin-left: var(--space-xs);
-}
-
 .page-header__tools {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-}
-
-.page-header__actions--hole {
-  justify-content: space-between;
-  align-items: center;
-  position: relative;
-}
-
-.page-header__actions--hole .page-header__tools {
-  margin-left: auto;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.page-header__actions--hole .header-settings {
-  margin-left: 0;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.page-header__actions--hole .back-nav {
-  margin: 0;
-  padding: var(--space-sm) 0;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.hole-page-header__info {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(60vw, 420px);
-  max-width: calc(100% - 240px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  text-align: center;
-  pointer-events: none;
-}
-
-.hole-page-header__title,
-.hole-page-header__meta {
-  display: block;
-  width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.hole-page-header__title {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-muted);
-}
-
-.hole-page-header__meta {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-muted);
 }
 
 .page-header-title {
@@ -192,12 +111,13 @@
 }
 
 .header-settings__button[aria-expanded="true"] {
-  border-bottom-right-radius: 0;
+  border-top-right-radius: 0;
 }
 
 .header-settings .club-settings__panel {
   position: absolute;
-  top: calc(100% + var(--space-xs));
+  bottom: calc(100% + var(--space-xs));
+  top: auto;
   right: 0;
   left: auto;
   width: min(92vw, 360px);
@@ -207,20 +127,32 @@
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
   box-shadow: var(--shadow-card);
   overflow: hidden;
   z-index: 30;
 }
 
-.header-settings .club-settings__panel.hole-info-panel {
+.hole-nav-bar__group--center .club-settings__panel.hole-info-panel {
+  position: absolute;
+  bottom: calc(100% + var(--space-xs));
+  top: auto;
+  left: 50%;
+  right: auto;
   width: min(420px, calc(100vw - 24px));
   max-width: calc(100vw - 24px);
   min-width: 0;
-  border-top-right-radius: var(--radius-sm);
+  transform: translateX(calc(-50% + var(--header-panel-shift-x, 0px)));
+  max-height: var(--header-panel-max-height, calc(100dvh - 24px));
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  z-index: 30;
 }
 
-.header-settings .club-settings__panel.hole-info-panel:not([hidden]) {
+.hole-nav-bar__group--center .club-settings__panel.hole-info-panel:not([hidden]) {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -228,7 +160,7 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.header-settings .club-settings__backdrop {
+.club-settings__backdrop {
   position: fixed;
   inset: 0;
   border: 0;
@@ -238,7 +170,7 @@
   z-index: 20;
 }
 
-.header-settings .club-settings__backdrop[hidden] {
+.club-settings__backdrop[hidden] {
   display: none;
 }
 
@@ -763,43 +695,124 @@
   left: 0;
   right: 0;
   display: flex;
-  padding-bottom: var(--safe-bottom);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  padding-bottom: calc(var(--space-sm) + var(--safe-bottom));
   background-color: var(--color-surface);
   border-top: 1px solid var(--color-border);
   z-index: 10;
 }
 
-.hole-nav-btn {
-  flex: 1;
-  display: flex;
+.hole-nav-bar__group {
+  display: inline-flex;
   align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.hole-nav-bar__group--center {
+  position: relative;
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+.hole-nav-bar__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
   min-height: var(--min-touch);
-  padding: calc(var(--space-md) + 2px) var(--space-md);
-  font-size: var(--font-size-body);
+  padding: var(--space-xs) var(--space-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: center;
+  max-width: 100%;
+}
+
+.hole-nav-bar__center:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.hole-nav-bar__center:active {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.hole-nav-bar__center:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.hole-nav-bar__center-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.hole-nav-bar__center-meta {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.hole-nav-bar .back-nav {
+  margin: 0;
+  padding: var(--space-sm);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.hole-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  font-size: 20px;
   font-weight: 500;
   text-decoration: none;
   color: var(--color-accent);
+  background-color: var(--color-surface);
+  cursor: pointer;
+  line-height: 1;
 }
 
 .hole-nav-btn:hover {
-  text-decoration: underline;
+  background-color: rgba(27, 107, 58, 0.06);
 }
 
 .hole-nav-btn:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
-}
-
-.hole-nav-btn--prev {
-  justify-content: flex-start;
-}
-
-.hole-nav-btn--next {
-  justify-content: flex-end;
+  outline-offset: 2px;
 }
 
 .hole-nav-btn--disabled {
   color: var(--color-muted);
+  border-color: var(--color-border);
   pointer-events: none;
   cursor: default;
+}
+
+body.hole-page {
+  padding-bottom: calc(var(--min-touch) + var(--space-sm) * 2 + var(--safe-bottom));
 }

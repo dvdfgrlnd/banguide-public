@@ -11,66 +11,65 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <body class="hole-page is-entering">
-  <header class="page-header">
-    <div class="page-header__actions page-header__actions--compact page-header__actions--hole">
-      <a href="index.html" id="backLink" class="back-nav">← All holes</a>
-      <div id="holeHeaderInfo" class="hole-page-header__info" hidden></div>
-      <div class="page-header__tools page-header__tools--hole">
-        <div class="header-settings" id="clubSettings" hidden>
-          <button id="clubSettingsToggle" class="header-settings__button" type="button" aria-label="Club settings" aria-expanded="false" aria-controls="clubSettingsPanel">
-            <span aria-hidden="true">⚙</span>
-          </button>
-          <button id="clubSettingsBackdrop" class="club-settings__backdrop" type="button" aria-label="Close club settings" hidden></button>
-          <div class="club-settings__panel" id="clubSettingsPanel" hidden>
-            <div class="club-settings__list" id="clubList" aria-live="polite"></div>
-            <form class="club-add-form" id="addClubForm" novalidate>
-              <input type="text" id="newClubName" class="club-input" placeholder="Club (e.g. 7-iron)" maxlength="20" autocomplete="off">
-              <input type="number" id="newClubmeters" class="club-input club-input--meters" placeholder="meters" min="1" max="366" autocomplete="off">
-              <button type="submit" class="club-add-btn">Add</button>
-            </form>
-            <section class="gps-debug" aria-label="GPS debug">
-              <p class="gps-status" id="gpsStatus">GPS is off.</p>
-              <button id="gpsSetAnchorBtn" class="map-calibration__start" type="button" hidden>Set anchor on map</button>
-              <button id="gpsClearAnchorBtn" class="map-calibration__cancel" type="button" hidden>Clear anchor</button>
-              <button id="gpsSimulateBtn" class="map-calibration__start" type="button">Simulate GPS walk</button>
-              <p id="gpsSimulateStatus" class="gps-simulation__status" hidden></p>
-            </section>
-            <section class="map-calibration" aria-label="Map scale calibration">
-              <button id="startCalibrationBtn" class="map-calibration__start" type="button">Calibrate map scale</button>
-              <div id="mapCalibrationPanel" class="map-calibration__panel" hidden>
-                <p id="mapCalibrationStatus" class="map-calibration__status">Using course map scale.</p>
-                <p id="mapCalibrationHint" class="map-calibration__hint">Tap two points on the map, then enter the known distance.</p>
-                <label class="map-calibration__label" for="mapCalibrationDistance">Distance between points (m)</label>
-                <input type="number" id="mapCalibrationDistance" class="club-input" min="0.1" step="0.1" inputmode="decimal" placeholder="e.g. 120">
-                <div class="map-calibration__actions">
-                  <button id="applyCalibrationBtn" class="map-calibration__apply" type="button" disabled>Save scale</button>
-                  <button id="cancelCalibrationBtn" class="map-calibration__cancel" type="button">Cancel</button>
-                  <button id="resetCalibrationBtn" class="map-calibration__reset" type="button">Reset saved scale</button>
-                </div>
-              </div>
-            </section>
-          </div>
-        </div>
-        <div class="header-settings" id="holeDetailsPanelRoot" hidden>
-          <button id="holeDetailsToggle" class="header-settings__button" type="button" aria-label="Hole details" aria-expanded="false" aria-controls="holeDetailsPanel">
-            <span aria-hidden="true">ℹ</span>
-          </button>
-          <button id="holeDetailsBackdrop" class="club-settings__backdrop" type="button" aria-label="Close hole details" hidden></button>
-          <div class="club-settings__panel hole-info-panel" id="holeDetailsPanel" hidden>
-            <div class="hole-info-panel__content" id="holeDetailsContent" aria-live="polite"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <main class="page" id="holeContent" style="padding-bottom: 64px">
+  <main class="page" id="holeContent">
     <p class="state-loading">Loading hole…</p>
   </main>
 
   <nav class="hole-nav-bar" id="holeNav" aria-label="Hole navigation" hidden>
-    <a href="#" id="prevHole" class="hole-nav-btn hole-nav-btn--prev">← Hole</a>
-    <a href="#" id="nextHole" class="hole-nav-btn hole-nav-btn--next">Hole →</a>
+    <div class="hole-nav-bar__group hole-nav-bar__group--left">
+      <a href="index.html" id="backLink" class="back-nav">← Back</a>
+      <div class="header-settings" id="clubSettings" hidden>
+        <button id="clubSettingsToggle" class="header-settings__button" type="button" aria-label="Club settings" aria-expanded="false" aria-controls="clubSettingsPanel">
+          <span aria-hidden="true">⚙</span>
+        </button>
+        <button id="clubSettingsBackdrop" class="club-settings__backdrop" type="button" aria-label="Close club settings" hidden></button>
+        <div class="club-settings__panel" id="clubSettingsPanel" hidden>
+          <div class="club-settings__list" id="clubList" aria-live="polite"></div>
+          <form class="club-add-form" id="addClubForm" novalidate>
+            <input type="text" id="newClubName" class="club-input" placeholder="Club (e.g. 7-iron)" maxlength="20" autocomplete="off">
+            <input type="number" id="newClubmeters" class="club-input club-input--meters" placeholder="meters" min="1" max="366" autocomplete="off">
+            <button type="submit" class="club-add-btn">Add</button>
+          </form>
+          <section class="gps-debug" aria-label="GPS debug">
+            <p class="gps-status" id="gpsStatus">GPS is off.</p>
+            <button id="gpsSetAnchorBtn" class="map-calibration__start" type="button" hidden>Set anchor on map</button>
+            <button id="gpsClearAnchorBtn" class="map-calibration__cancel" type="button" hidden>Clear anchor</button>
+            <button id="gpsSimulateBtn" class="map-calibration__start" type="button">Simulate GPS walk</button>
+            <p id="gpsSimulateStatus" class="gps-simulation__status" hidden></p>
+          </section>
+          <section class="map-calibration" aria-label="Map scale calibration">
+            <button id="startCalibrationBtn" class="map-calibration__start" type="button">Calibrate map scale</button>
+            <div id="mapCalibrationPanel" class="map-calibration__panel" hidden>
+              <p id="mapCalibrationStatus" class="map-calibration__status">Using course map scale.</p>
+              <p id="mapCalibrationHint" class="map-calibration__hint">Tap two points on the map, then enter the known distance.</p>
+              <label class="map-calibration__label" for="mapCalibrationDistance">Distance between points (m)</label>
+              <input type="number" id="mapCalibrationDistance" class="club-input" min="0.1" step="0.1" inputmode="decimal" placeholder="e.g. 120">
+              <div class="map-calibration__actions">
+                <button id="applyCalibrationBtn" class="map-calibration__apply" type="button" disabled>Save scale</button>
+                <button id="cancelCalibrationBtn" class="map-calibration__cancel" type="button">Cancel</button>
+                <button id="resetCalibrationBtn" class="map-calibration__reset" type="button">Reset saved scale</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div class="hole-nav-bar__group hole-nav-bar__group--center">
+      <button id="holeInfoTrigger" class="hole-nav-bar__center" type="button" aria-label="Open hole details" aria-expanded="false" aria-controls="holeDetailsPanel">
+        <span id="holeInfoTitle" class="hole-nav-bar__center-title"></span>
+        <span id="holeInfoMeta" class="hole-nav-bar__center-meta"></span>
+      </button>
+      <button id="holeDetailsBackdrop" class="club-settings__backdrop" type="button" aria-label="Close hole details" hidden></button>
+      <div class="club-settings__panel hole-info-panel" id="holeDetailsPanel" hidden>
+        <div class="hole-info-panel__content" id="holeDetailsContent" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="hole-nav-bar__group hole-nav-bar__group--right">
+      <a href="#" id="prevHole" class="hole-nav-btn hole-nav-btn--prev" aria-label="Previous hole">‹</a>
+      <a href="#" id="nextHole" class="hole-nav-btn hole-nav-btn--next" aria-label="Next hole">›</a>
+    </div>
   </nav>
 
   <script type="module">
@@ -88,9 +87,9 @@
     const holeContent = document.getElementById('holeContent');
     const holeNav = document.getElementById('holeNav');
     const backLink = document.getElementById('backLink');
-    const holeHeaderInfo = document.getElementById('holeHeaderInfo');
-    const holeDetailsPanelRoot = document.getElementById('holeDetailsPanelRoot');
-    const holeDetailsToggle = document.getElementById('holeDetailsToggle');
+    const holeInfoTrigger = document.getElementById('holeInfoTrigger');
+    const holeInfoTitle = document.getElementById('holeInfoTitle');
+    const holeInfoMeta = document.getElementById('holeInfoMeta');
     const holeDetailsBackdrop = document.getElementById('holeDetailsBackdrop');
     const holeDetailsPanel = document.getElementById('holeDetailsPanel');
     const holeDetailsContent = document.getElementById('holeDetailsContent');
@@ -186,7 +185,6 @@
         gpsController.destroy();
         gpsController = null;
       }
-      holeNav?.setAttribute('aria-disabled', 'true');
       document.body.classList.remove('is-entering');
       document.body.classList.add('is-leaving');
 
@@ -297,7 +295,7 @@
     }
 
     function closeHoleDetailsPanel() {
-      setHeaderPanelState(holeDetailsToggle, holeDetailsPanel, holeDetailsBackdrop, false);
+      setHeaderPanelState(holeInfoTrigger, holeDetailsPanel, holeDetailsBackdrop, false);
     }
 
     function closeClubSettingsPanel() {
@@ -330,12 +328,8 @@
 
       panel.style.setProperty('--header-panel-shift-x', `${Math.round(shiftX)}px`);
 
-      const viewportHeight = window.visualViewport?.height || window.innerHeight;
-      const navClearance = holeNav && !holeNav.hasAttribute('hidden')
-        ? Math.ceil(holeNav.getBoundingClientRect().height)
-        : 0;
-      const bottomReservedSpace = viewportGutter + navClearance;
-      const availableHeight = Math.max(220, Math.floor(viewportHeight - panelRect.top - bottomReservedSpace));
+      const navRect = holeNav.getBoundingClientRect();
+      const availableHeight = Math.max(320, Math.floor(navRect.top - viewportGutter));
       panel.style.setProperty('--header-panel-max-height', `${availableHeight}px`);
     }
 
@@ -383,7 +377,7 @@
       window.addEventListener('resize', position);
     }
 
-    setupHeaderPanel(holeDetailsToggle, holeDetailsPanel, holeDetailsBackdrop, closeClubSettingsPanel, closeHoleDetailsPanel, positionHoleDetailsPanel);
+    setupHeaderPanel(holeInfoTrigger, holeDetailsPanel, holeDetailsBackdrop, closeClubSettingsPanel, closeHoleDetailsPanel, positionHoleDetailsPanel);
     setupHeaderPanel(clubSettingsToggle, clubSettingsPanel, clubSettingsBackdrop, closeHoleDetailsPanel, closeClubSettingsPanel, positionClubSettingsPanel);
 
     async function initializePage() {
@@ -407,8 +401,7 @@
 
         if (!hole || isNaN(holeNum) || holeNum < 1 || holeNum > holes.length) {
           clubSettings?.setAttribute('hidden', '');
-          holeDetailsPanelRoot?.setAttribute('hidden', '');
-          holeHeaderInfo?.setAttribute('hidden', 'hidden');
+          holeInfoTrigger?.setAttribute('hidden', '');
           if (holeDetailsContent) {
             holeDetailsContent.innerHTML = '';
           }
@@ -592,12 +585,9 @@
 
         document.title = `Hole ${hole.hole} — ${courseLabel} — BanGuide`;
 
-        if (holeHeaderInfo) {
-          holeHeaderInfo.innerHTML = `
-            <span class="hole-page-header__title">${escapeHtml(courseLabel)} · Hole ${hole.hole}</span>
-            <span class="hole-page-header__meta">Par ${escapeHtml(hole.par)} · SI ${escapeHtml(hole.strokeIndex)}</span>
-          `;
-          holeHeaderInfo.removeAttribute('hidden');
+        if (holeInfoTitle && holeInfoMeta) {
+          holeInfoTitle.textContent = `${escapeHtml(courseLabel)} · Hole ${hole.hole}`;
+          holeInfoMeta.textContent = `Par ${escapeHtml(hole.par)} · SI ${escapeHtml(hole.strokeIndex)}`;
         }
 
         holeContent.innerHTML = `
@@ -623,7 +613,7 @@
 
         renderHoleDetails();
 
-        holeDetailsPanelRoot?.removeAttribute('hidden');
+        holeInfoTrigger?.removeAttribute('hidden');
         clubSettings?.removeAttribute('hidden');
         closeHoleDetailsPanel();
         closeClubSettingsPanel();
@@ -1306,21 +1296,17 @@
         const isLast = hole.hole === totalHoles;
 
         if (isFirst) {
-          prevHole.textContent = '← Hole 1';
           prevHole.classList.add('hole-nav-btn--disabled');
           prevHole.removeAttribute('href');
         } else {
-          prevHole.textContent = `← Hole ${hole.hole - 1}`;
           prevHole.href = buildHoleHref(courseId, hole.hole - 1);
           prevHole.classList.remove('hole-nav-btn--disabled');
         }
 
         if (isLast) {
-          nextHole.textContent = `Hole ${totalHoles} →`;
           nextHole.classList.add('hole-nav-btn--disabled');
           nextHole.removeAttribute('href');
         } else {
-          nextHole.textContent = `Hole ${hole.hole + 1} →`;
           nextHole.href = buildHoleHref(courseId, hole.hole + 1);
           nextHole.classList.remove('hole-nav-btn--disabled');
         }
@@ -1330,7 +1316,7 @@
       } catch (error) {
         console.error('Error loading hole:', error);
         clubSettings?.setAttribute('hidden', '');
-        holeHeaderInfo?.setAttribute('hidden', 'hidden');
+        holeInfoTrigger?.setAttribute('hidden', '');
         closeClubSettingsPanel();
         const isOfflineUncached = error?.code === 'OFFLINE_UNCACHED';
         holeContent.innerHTML = `
