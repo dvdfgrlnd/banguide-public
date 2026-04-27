@@ -72,6 +72,18 @@ body {
   flex-direction: column;
 }
 
+body.hole-page {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+body.hole-page input,
+body.hole-page textarea {
+  user-select: auto;
+  -webkit-user-select: auto;
+}
+
 main {
   flex: 1;
 }
