@@ -127,8 +127,8 @@ export function latLngToMapPixel(lat, lng, anchor, orientation = 0, metersPerPix
   const east = dLng * metersPerDegLng;
 
   const rad = (orientation * Math.PI) / 180;
-  const mapX = anchor.x + (east * Math.cos(rad) - north * Math.sin(rad)) / metersPerPixel;
-  const mapY = anchor.y + (east * Math.sin(rad) + north * Math.cos(rad)) / metersPerPixel;
+  const mapX = anchor.x + (east * Math.cos(rad) + north * Math.sin(rad)) / metersPerPixel;
+  const mapY = anchor.y + (-east * Math.sin(rad) + north * Math.cos(rad)) / metersPerPixel;
 
   return { x: mapX, y: mapY };
 }
