@@ -66,6 +66,89 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
     }
   }
 
+  function isDoubleTapCandidate(pos) {
+    const now = Date.now();
+    if (!lastTapPos) {
+      return false;
+    }
+    if (now - lastTapTime >= DOUBLE_TAP_MS) {
+      return false;
+    }
+    const dx = pos.x - lastTapPos.x;
+    const dy = pos.y - lastTapPos.y;
+    return Math.hypot(dx, dy) <= DOUBLE_TAP_DISTANCE_PX;
+  }
+
+  function onSelectionChange() {
+    // While zoom-dragging, iOS keeps trying to anchor a selection to the held
+    // finger (double-tap-hold is the system text-selection gesture). Nuke it
+    // as soon as it appears so Firefox/Safari never get to show the
+    // "Search / Find on page" callout.
+    if (isZoomDragging) {
+      clearBrowserSelection();
+    }
+  }
+
+  function onContextMenuDuringZoom(e) {
+    if (isZoomDragging) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
+  }
+
+  function touchPosFromTouch(touch) {
+    return { x: touch.clientX, y: touch.clientY };
+  }
+
+  function onTouchStart(e) {
+    if (e.touches.length !== 1) {
+      // A second finger cancels any active gesture (pinch takes over)
+      if (isZoomDragging) {
+        endZoomDrag();
+      }
+      return;
+    }
+
+    const pos = touchPosFromTouch(e.touches[0]);
+
+    // iOS starts its long-press / selection timer on touchstart — long before
+    // (or just after) pointerdown fires, depending on browser ordering.
+    // When this looks like the second tap of a double-tap, or is the held
+    // finger of an already-started zoom-drag, kill the native gesture up
+    // front so the callout never gets scheduled.
+    if (isZoomDragging || isDoubleTapCandidate(pos)) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      clearBrowserSelection();
+    }
+  }
+
+  function onTouchMove(e) {
+    if (!isZoomDragging) {
+      return;
+    }
+    // Block selection extension, native scroll and Leaflet pan while we own
+    // the gesture. Non-passive so preventDefault actually works on iOS.
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    clearBrowserSelection();
+  }
+
+  function onTouchEnd(e) {
+    if (!isZoomDragging) {
+      return;
+    }
+    // Suppress the synthetic click / selection iOS emits after a hold-drag.
+    // End the zoom here too — pointerup still fires on most browsers (separate
+    // event stream, second endZoomDrag is a harmless no-op), but if a browser
+    // suppresses pointerup after a canceled touchend we must not get stuck
+    // with map dragging disabled.
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    clearBrowserSelection();
+    endZoomDrag();
+  }
+
   function onPointerDown(e) {
     if (!e.isPrimary || e.button !== 0) {
       // A second pointer or non-left button cancels any active gesture
@@ -175,6 +258,14 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
   container.addEventListener('pointermove', onPointerMove, true);
   container.addEventListener('pointerup', onPointerUp, true);
   container.addEventListener('pointercancel', onPointerCancel, true);
+  // iOS long-press/selection is driven by the touch stream, which starts
+  // before pointerdown — these must be non-passive so preventDefault works.
+  container.addEventListener('touchstart', onTouchStart, { capture: true, passive: false });
+  container.addEventListener('touchmove', onTouchMove, { capture: true, passive: false });
+  container.addEventListener('touchend', onTouchEnd, { capture: true, passive: false });
+  container.addEventListener('touchcancel', onTouchEnd, { capture: true, passive: false });
+  container.addEventListener('contextmenu', onContextMenuDuringZoom, true);
+  document.addEventListener('selectionchange', onSelectionChange);
 
   return {
     destroy() {
@@ -183,6 +274,12 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
       container.removeEventListener('pointermove', onPointerMove, true);
       container.removeEventListener('pointerup', onPointerUp, true);
       container.removeEventListener('pointercancel', onPointerCancel, true);
+      container.removeEventListener('touchstart', onTouchStart, { capture: true, passive: false });
+      container.removeEventListener('touchmove', onTouchMove, { capture: true, passive: false });
+      container.removeEventListener('touchend', onTouchEnd, { capture: true, passive: false });
+      container.removeEventListener('touchcancel', onTouchEnd, { capture: true, passive: false });
+      container.removeEventListener('contextmenu', onContextMenuDuringZoom, true);
+      document.removeEventListener('selectionchange', onSelectionChange);
       if (map.doubleClickZoom) {
         map.doubleClickZoom.enable();
       }
