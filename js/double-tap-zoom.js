@@ -45,6 +45,27 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
     enableMapDrag();
   }
 
+  function clearBrowserSelection() {
+    // iOS treats double-tap-hold + drag as a text-selection gesture and shows
+    // the "Search / Find on page" callout (Firefox on iOS, Safari lookup).
+    // Drop any active selection the moment our zoom gesture wins.
+    try {
+      const selection = window.getSelection && window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        selection.removeAllRanges();
+      }
+    } catch {
+      // ignore — selection API may be unavailable
+    }
+    try {
+      if (document.selection && typeof document.selection.empty === 'function') {
+        document.selection.empty();
+      }
+    } catch {
+      // ignore legacy IE path
+    }
+  }
+
   function onPointerDown(e) {
     if (!e.isPrimary || e.button !== 0) {
       // A second pointer or non-left button cancels any active gesture
@@ -65,6 +86,7 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
         // Double-tap detected — swallow this event before other handlers see it
         e.preventDefault();
         e.stopImmediatePropagation();
+        clearBrowserSelection();
 
         // Cancel any pending measurement tap so the first tap of the double-tap
         // doesn't register as a measurement point.
