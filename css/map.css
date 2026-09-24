@@ -26,6 +26,11 @@
 
 .hole-map.leaflet-container {
   background: #ffffff;
+  /* One-handed use: a touch starting on the map pans the map, it never
+     scrolls the page behind it. (Leaflet needs touch-action: none so the
+     browser delivers the gesture to its drag handler.) */
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
 .hole-map img,

@@ -158,6 +158,15 @@ export function initHoleMap({ container, hole, getmetersPerPixel } = {}) {
     minZoom: -5,
     maxZoom: 3,
     zoomSnap: 0.25,
+    // One-handed use: single-finger (or single-button) drag always pans the
+    // map. Pinch still zooms. Leaflet clamps panning at fit-zoom via the
+    // maxBounds below, so no zoom-gated enable/disable is needed.
+    dragging: true,
+    touchZoom: true,
+    scrollWheelZoom: true,
+    boxZoom: true,
+    // Custom double-tap-hold zoom-drag in double-tap-zoom.js owns this gesture.
+    doubleClickZoom: false,
     attributionControl: true
   });
 

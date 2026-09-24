@@ -826,6 +826,12 @@
           if (!isCalibrating) {
             calibrationPoints = [];
             clearCalibrationLayer();
+            // stop() above deactivates measurement — reactivate it so taps
+            // keep working after cancelling calibration (apply/reset paths
+            // recreate measurement via setupMap, but cancel does not).
+            if (measurement) {
+              measurement.start();
+            }
           }
 
           if (calibrationPanel) {
@@ -891,6 +897,8 @@
             shouldHandleTap: () => {
               // Disable overlay long-press if currently calibrating
               if (isCalibrating) return false;
+              // Anchor placement owns the next tap — don't draw club circles for it
+              if (gpsController?.isSettingAnchor) return false;
               // Disable overlay for uncalibrated imported maps
               if (isImportedCourse && !Number.isFinite(currentmetersPerPixel)) {
                 console.warn('Overlay disabled: map not calibrated');
@@ -926,6 +934,10 @@
             isCalibrated: () => !isImportedCourse || Number.isFinite(currentmetersPerPixel),
             onStateChange: updateMeasurementActions,
             shouldHandleClick: () => {
+              // Anchor placement owns the next tap — don't record a measurement point for it
+              if (gpsController?.isSettingAnchor) return false;
+              // Calibration taps belong to the calibration layer, not measurement
+              if (isCalibrating) return false;
               // Ignore the synthetic click that follows an overlay long-press
               if (overlay?.consumeSuppressedTap?.()) return false;
               return true;
@@ -938,6 +950,11 @@
 
           calibrationClickHandler = (event) => {
             if (gpsController?.isSettingAnchor) {
+              // The anchor tap must not leak into measurement (its 300 ms
+              // delayed tap could still be in flight from a double-tap).
+              if (measurement?.cancelPendingTap) {
+                measurement.cancelPendingTap();
+              }
               const latlng = event.latlng;
               const mpp = Number.isFinite(currentmetersPerPixel) && currentmetersPerPixel > 0 ? currentmetersPerPixel : 1;
               const pixelX = latlng.lng / mpp;
@@ -1042,6 +1059,10 @@
         if (gpsSetAnchorBtn) {
           gpsSetAnchorBtn.addEventListener('click', () => {
             if (!gpsController) return;
+            // Drop any in-flight measurement tap so it can't fire after anchor mode starts
+            if (measurement?.cancelPendingTap) {
+              measurement.cancelPendingTap();
+            }
             gpsController.setAnchorMode(true);
             closeClubSettingsPanel();
             if (gpsStatus) {

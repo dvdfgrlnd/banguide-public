@@ -2,6 +2,9 @@ const HINT_START = 'Tap start point';
 const HINT_END = 'Tap end point';
 const HINT_AGAIN = 'Tap to measure again';
 const TAP_DELAY_MS = 300;
+// A single-finger drag pans the map — once the finger moves past this
+// tolerance the gesture belongs to panning, never to a measurement tap.
+const DRAG_CANCEL_PX = 8;
 
 export function initMeasurement({ map, isCalibrated, onStateChange = () => {}, shouldHandleClick = () => true }) {
   let measurePoints = [];
@@ -116,12 +119,16 @@ export function initMeasurement({ map, isCalibrated, onStateChange = () => {}, s
     _tapPointerId = null;
 
     if (typeof shouldHandleClick === 'function' && shouldHandleClick() === false) {
+      _tapStartPos = null;
       return;
     }
 
     const dx = e.clientX - _tapStartPos.x;
     const dy = e.clientY - _tapStartPos.y;
-    if (Math.sqrt(dx * dx + dy * dy) > 8) {
+    const isTap = Math.sqrt(dx * dx + dy * dy) <= DRAG_CANCEL_PX;
+    _tapStartPos = null;
+
+    if (!isTap) {
       return;
     }
 
@@ -145,12 +152,28 @@ export function initMeasurement({ map, isCalibrated, onStateChange = () => {}, s
     if (e.pointerId === _tapPointerId) {
       _tapPending = false;
       _tapPointerId = null;
+      _tapStartPos = null;
+    }
+  }
+
+  function onPointerMove(e) {
+    // A drag owns this gesture once past tolerance: drop the pending tap so
+    // the release can never record a measurement point, even if pointerup
+    // lands off-container and never reaches onPointerUp.
+    if (!_tapPending || e.pointerId !== _tapPointerId || !_tapStartPos) return;
+    const dx = e.clientX - _tapStartPos.x;
+    const dy = e.clientY - _tapStartPos.y;
+    if (Math.sqrt(dx * dx + dy * dy) > DRAG_CANCEL_PX) {
+      _tapPending = false;
+      _tapPointerId = null;
+      _tapStartPos = null;
     }
   }
 
   container.addEventListener('pointerdown', onPointerDown);
   container.addEventListener('pointerup', onPointerUp);
   container.addEventListener('pointercancel', onPointerCancel);
+  container.addEventListener('pointermove', onPointerMove);
 
   function clearMeasurementLayer() {
     measurePoints = [];
@@ -195,6 +218,7 @@ export function initMeasurement({ map, isCalibrated, onStateChange = () => {}, s
     container.removeEventListener('pointerdown', onPointerDown);
     container.removeEventListener('pointerup', onPointerUp);
     container.removeEventListener('pointercancel', onPointerCancel);
+    container.removeEventListener('pointermove', onPointerMove);
     cancelPendingTap();
     clearMeasurementLayer();
     if (map.hasLayer(layerGroup)) {

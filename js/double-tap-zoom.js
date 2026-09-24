@@ -18,6 +18,15 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
   let lastTapTime = 0;
   let lastTapPos = null;
 
+  // Chrome/Android fire pointerdown before touchstart for the same touch;
+  // iOS fires touchstart first. When pointerdown has already run for the
+  // current gesture, touchstart must not re-run the double-tap-candidate
+  // check — it would see the record pointerdown just made for this very
+  // touch, treat EVERY touch as a double-tap candidate, swallow its
+  // touchstart, and thereby kill Leaflet's single-finger drag (which is
+  // bound to touchstart).
+  let pointerDownSeen = false;
+
   let isZoomDragging = false;
   let zoomDragPointerId = null;
   let zoomDragStartY = 0;
@@ -100,6 +109,12 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
     return { x: touch.clientX, y: touch.clientY };
   }
 
+  function swallowTouch(e) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    clearBrowserSelection();
+  }
+
   function onTouchStart(e) {
     if (e.touches.length !== 1) {
       // A second finger cancels any active gesture (pinch takes over)
@@ -109,17 +124,25 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
       return;
     }
 
-    const pos = touchPosFromTouch(e.touches[0]);
+    // Held finger of a double-tap zoom-drag (set by this touch's pointerdown
+    // on pointer-first browsers): isolate it from Leaflet and native gestures.
+    if (isZoomDragging) {
+      swallowTouch(e);
+      return;
+    }
 
-    // iOS starts its long-press / selection timer on touchstart — long before
-    // (or just after) pointerdown fires, depending on browser ordering.
-    // When this looks like the second tap of a double-tap, or is the held
-    // finger of an already-started zoom-drag, kill the native gesture up
-    // front so the callout never gets scheduled.
-    if (isZoomDragging || isDoubleTapCandidate(pos)) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      clearBrowserSelection();
+    // pointerdown already recorded/detected taps for this same touch — a
+    // candidate check here would always match its own fresh record and
+    // swallow every touchstart, breaking single-finger map drag.
+    if (pointerDownSeen) {
+      return;
+    }
+
+    // iOS fires touchstart before pointerdown: kill the native long-press /
+    // selection gesture up front when this looks like the second tap of a
+    // double-tap, so the callout never gets scheduled.
+    if (isDoubleTapCandidate(touchPosFromTouch(e.touches[0]))) {
+      swallowTouch(e);
     }
   }
 
@@ -135,6 +158,7 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
   }
 
   function onTouchEnd(e) {
+    pointerDownSeen = false;
     if (!isZoomDragging) {
       return;
     }
@@ -150,6 +174,9 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
   }
 
   function onPointerDown(e) {
+    // This touch/mouse gesture's sibling touch* events must skip tap logic.
+    pointerDownSeen = true;
+
     if (!e.isPrimary || e.button !== 0) {
       // A second pointer or non-left button cancels any active gesture
       if (isZoomDragging) {
@@ -233,6 +260,7 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
   }
 
   function onPointerUp(e) {
+    pointerDownSeen = false;
     if (!isZoomDragging || e.pointerId !== zoomDragPointerId) {
       return;
     }
@@ -243,15 +271,21 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
   }
 
   function onPointerCancel(e) {
+    pointerDownSeen = false;
     if (!isZoomDragging || e.pointerId !== zoomDragPointerId) {
       return;
     }
     endZoomDrag();
   }
 
-  // Disable Leaflet's built-in double-click zoom so it doesn't compete
-  if (map.doubleClickZoom) {
+  // Leaflet's built-in double-click zoom competes with the custom
+  // double-tap-hold zoom-drag below — keep it off while we own the gesture.
+  // (map.js already creates the map with doubleClickZoom: false; this covers
+  // maps created before that default existed.)
+  let dblClickWasEnabled = false;
+  if (map.doubleClickZoom && map.doubleClickZoom.enabled()) {
     map.doubleClickZoom.disable();
+    dblClickWasEnabled = true;
   }
 
   container.addEventListener('pointerdown', onPointerDown, true);
@@ -280,7 +314,7 @@ export function initDoubleTapZoom({ map, measurement } = {}) {
       container.removeEventListener('touchcancel', onTouchEnd, { capture: true, passive: false });
       container.removeEventListener('contextmenu', onContextMenuDuringZoom, true);
       document.removeEventListener('selectionchange', onSelectionChange);
-      if (map.doubleClickZoom) {
+      if (dblClickWasEnabled && map.doubleClickZoom) {
         map.doubleClickZoom.enable();
       }
     },
