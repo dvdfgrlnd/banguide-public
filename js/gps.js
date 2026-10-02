@@ -338,6 +338,10 @@ export function initGPS(options) {
       state.anchor = anchor;
       saveAnchor(courseId, holeNumber, anchor);
       if (state.currentLatLng) {
+        if (state.visibilityHandler) {
+          document.removeEventListener('visibilitychange', state.visibilityHandler);
+          state.visibilityHandler = null;
+        }
         handlePosition(state.currentLatLng.lat, state.currentLatLng.lng);
       }
     },

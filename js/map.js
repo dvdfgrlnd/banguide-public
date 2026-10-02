@@ -30,52 +30,12 @@ function installInteractionGuards(container) {
     event.preventDefault();
   };
 
-  // Long-pressing a map image is interpreted by iOS as text/image selection,
-  // which is what triggers the Firefox "Search with Firefox / Find on page"
-  // callout during double-tap-hold zoom-drag. Mark images non-draggable so
-  // there is nothing selectable to anchor that callout.
-  const markImagesNonDraggable = (root) => {
-    const images = root === container
-      ? root.querySelectorAll('img')
-      : root.tagName === 'IMG'
-        ? [root]
-        : root.querySelectorAll
-          ? root.querySelectorAll('img')
-          : [];
-    images.forEach((img) => {
-      if (img.getAttribute('draggable') !== 'false') {
-        img.setAttribute('draggable', 'false');
-      }
-    });
-  };
-
-  markImagesNonDraggable(container);
-
-  const observer = typeof MutationObserver !== 'undefined'
-    ? new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-          if (node && node.nodeType === 1) {
-            markImagesNonDraggable(node);
-          }
-        });
-      });
-    })
-    : null;
-
-  if (observer) {
-    observer.observe(container, { childList: true, subtree: true });
-  }
-
   const events = ['contextmenu', 'selectstart', 'dragstart'];
   events.forEach((eventName) => {
     container.addEventListener(eventName, suppressBrowserGestureUI);
   });
 
   return () => {
-    if (observer) {
-      observer.disconnect();
-    }
     events.forEach((eventName) => {
       container.removeEventListener(eventName, suppressBrowserGestureUI);
     });
@@ -158,15 +118,6 @@ export function initHoleMap({ container, hole, getmetersPerPixel } = {}) {
     minZoom: -5,
     maxZoom: 3,
     zoomSnap: 0.25,
-    // One-handed use: single-finger (or single-button) drag always pans the
-    // map. Pinch still zooms. Leaflet clamps panning at fit-zoom via the
-    // maxBounds below, so no zoom-gated enable/disable is needed.
-    dragging: true,
-    touchZoom: true,
-    scrollWheelZoom: true,
-    boxZoom: true,
-    // Custom double-tap-hold zoom-drag in double-tap-zoom.js owns this gesture.
-    doubleClickZoom: false,
     attributionControl: true
   });
 

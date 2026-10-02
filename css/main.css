@@ -58,6 +58,10 @@
   padding: 0;
 }
 
+html {
+  touch-action: manipulation;
+}
+
 html, body {
   height: 100%;
   background-color: var(--color-bg);
@@ -155,6 +159,7 @@ p {
 button, a, [tabindex] {
   outline: 2px solid transparent;
   outline-offset: 2px;
+  touch-action: manipulation;
 }
 
 button:focus-visible, a:focus-visible, [tabindex]:focus-visible {

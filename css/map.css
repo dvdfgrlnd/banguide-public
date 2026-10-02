@@ -4,9 +4,6 @@
   flex: 1;
   min-height: 0;
   z-index: 5;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
 }
 
 .hole-map {
@@ -21,35 +18,19 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .hole-map.leaflet-container {
   background: #ffffff;
-  /* One-handed use: a touch starting on the map pans the map, it never
-     scrolls the page behind it. (Leaflet needs touch-action: none so the
-     browser delivers the gesture to its drag handler.) */
-  touch-action: none;
-  overscroll-behavior: contain;
 }
 
 .hole-map img,
 .hole-map .leaflet-pane,
-.hole-map .leaflet-pane *,
-.hole-map .leaflet-control-attribution,
-.hole-map .overlay-label,
-.hole-map .overlay-label span,
-.hole-map .measure-tooltip,
-.hole-map .measure-tooltip__text {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -webkit-touch-callout: none !important;
-  -webkit-user-drag: none !important;
-}
-
-.hole-map::selection,
-.hole-map *::selection {
-  background: transparent;
+.hole-map .leaflet-pane * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
 }
 
 .hole-map--loading::after {
@@ -327,6 +308,8 @@
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
+  /* No page zoom on rapid taps — map keeps its own Leaflet/custom zoom. */
+  touch-action: manipulation;
 }
 
 .scorecard-stepper__button:disabled {
@@ -352,6 +335,7 @@ button.scorecard-stepper__value {
   font: inherit;
   color: var(--color-text);
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .scorecard-stepper__value--pending {
