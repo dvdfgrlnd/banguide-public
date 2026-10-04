@@ -77,12 +77,33 @@ async function buildHtml() {
   log(`HTML: minified ${htmlFiles.length} file(s)`);
 }
 
+// ── static assets (copied verbatim — the minifiers above skip them) ─────────
+// dist/ is what gets deployed to GitHub Pages, so anything the app loads
+// at runtime must be copied here: Leaflet (vendor/), PWA icons (icons/),
+// and the web manifest. Missing files 404 on Pages (e.g. no vendor/ means
+// no map). images/ holds local dev fixtures only and is intentionally left
+// out — course images come from user imports at runtime.
+function copyStatic() {
+  const items = ['vendor', 'icons', 'manifest.webmanifest'];
+  for (const item of items) {
+    const src = path.join(root, item);
+    const dest = path.join(dist, item);
+    if (!fs.existsSync(src)) {
+      log(`static: ${item} not found, skipping`);
+      continue;
+    }
+    fs.cpSync(src, dest, { recursive: true });
+  }
+  log('static: copied vendor/, icons/, manifest.webmanifest');
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 (async () => {
   ensureDir(dist);
   try {
     await Promise.all([buildJs(), buildSw(), buildHtml()]);
     buildCss(); // sync, runs after async steps above
+    copyStatic();
     log('Done — output in dist/');
   } catch (err) {
     console.error(err);
