@@ -5,23 +5,36 @@
 
 import { loadImportedHoles, getImportedHoleImageURL } from './imported-data.js';
 
-async function getImageDimensionsFromUrl(url) {
+async function getImageDimensionsFromUrl(url, timeoutMs = 10000) {
   if (!url || typeof Image === 'undefined') {
     return null;
   }
 
   return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    // Some mobile browsers can leave a blob-URL image pending forever
+    // (neither load nor error fires). Time out so callers can render a
+    // fallback instead of hanging the page on "Loading hole…".
+    const timer = setTimeout(() => finish(null), timeoutMs);
     const img = new Image();
     img.onload = () => {
       const widthPx = Number(img.naturalWidth);
       const heightPx = Number(img.naturalHeight);
       if (Number.isFinite(widthPx) && Number.isFinite(heightPx) && widthPx > 0 && heightPx > 0) {
-        resolve({ widthPx, heightPx });
+        finish({ widthPx, heightPx });
       } else {
-        resolve(null);
+        finish(null);
       }
     };
-    img.onerror = () => resolve(null);
+    img.onerror = () => finish(null);
     img.src = url;
   });
 }

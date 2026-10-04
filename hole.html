@@ -393,7 +393,14 @@
       panel.style.setProperty('--header-panel-shift-x', `${Math.round(shiftX)}px`);
 
       const navRect = holeNav.getBoundingClientRect();
-      const availableHeight = Math.max(320, Math.floor(navRect.top - viewportGutter));
+      const navTop = Number.isFinite(navRect?.top) ? navRect.top : window.innerHeight;
+      // Floor keeps small-but-usable panels on short viewports; the cap keeps
+      // the panel inside the visible viewport (iOS landscape / toolbar).
+      // The panel scrolls (see .club-settings__panel), so a short cap is safe.
+      const availableHeight = Math.min(
+        Math.max(200, Math.floor(navTop - viewportGutter)),
+        Math.max(200, window.innerHeight - viewportGutter * 2)
+      );
       panel.style.setProperty('--header-panel-max-height', `${availableHeight}px`);
     }
 
@@ -665,8 +672,8 @@
         document.title = `Hole ${hole.hole} — ${courseLabel} — BanGuide`;
 
         if (holeInfoTitle && holeInfoMeta) {
-          holeInfoTitle.textContent = `${escapeHtml(courseLabel)} · Hole ${hole.hole}`;
-          holeInfoMeta.textContent = `Par ${escapeHtml(hole.par)} · SI ${escapeHtml(hole.strokeIndex)}`;
+          holeInfoTitle.textContent = `${courseLabel} · Hole ${hole.hole}`;
+          holeInfoMeta.textContent = `Par ${hole.par} · SI ${hole.strokeIndex}`;
         }
 
         holeContent.innerHTML = `
@@ -1358,7 +1365,38 @@
     }
 
     registerServiceWorker();
-    initializePage();
+
+    // Last-resort watchdog: initializePage() awaits IndexedDB and an image
+    // decode, either of which can hang indefinitely on iOS (blocked DB
+    // upgrade, image that never fires load/error). Never leave the user
+    // staring at "Loading hole…" — surface a retry instead.
+    function renderHoleLoadTimeout() {
+      if (!holeContent.querySelector('.state-loading')) {
+        return;
+      }
+      holeContent.innerHTML = `
+        <div class="state-error">
+          <p class="state-error-heading" style="color: var(--color-destructive); font-weight: 600;">Couldn't load hole guide</p>
+          <p class="state-error-body">Loading is taking too long. Check your connection and try again.</p>
+          <p class="state-error-body"><button id="holeLoadRetry" class="scorecard-toolbar__button" type="button">Retry</button></p>
+        </div>
+      `;
+      document.getElementById('holeLoadRetry')?.addEventListener('click', () => window.location.reload());
+    }
+
+    const holeLoadingWatchdog = window.setTimeout(() => {
+      console.warn('Hole loading timed out; showing retry.');
+      renderHoleLoadTimeout();
+    }, 15000);
+
+    initializePage().then(
+      () => window.clearTimeout(holeLoadingWatchdog),
+      (error) => {
+        window.clearTimeout(holeLoadingWatchdog);
+        console.error('Error loading hole:', error);
+        renderHoleLoadTimeout();
+      }
+    );
   </script>
 </body>
 </html>

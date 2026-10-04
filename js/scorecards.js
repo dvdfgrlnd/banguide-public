@@ -82,7 +82,12 @@ function readStore() {
 
 function writeStore(store) {
   const normalized = normalizeStore(store);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  } catch {
+    // Storage can throw (e.g. iOS private browsing / blocked cookies).
+    // Keep the in-memory state so the page keeps working for this visit.
+  }
   return normalized;
 }
 

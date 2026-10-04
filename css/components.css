@@ -155,13 +155,17 @@
   width: min(92vw, 360px);
   max-width: calc(100vw - (var(--page-padding) * 2));
   transform: translateX(var(--header-panel-shift-x, 0px));
+  max-height: var(--header-panel-max-height, calc(100vh - 24px));
   max-height: var(--header-panel-max-height, calc(100dvh - 24px));
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   border-bottom-right-radius: 0;
   box-shadow: var(--shadow-card);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   z-index: 30;
 }
 

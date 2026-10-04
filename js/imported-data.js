@@ -23,11 +23,19 @@ function basename(fileName) {
  * @returns {Promise<IDBDatabase>} The opened/created database
  */
 async function initDB() {
+  if (typeof indexedDB === 'undefined') {
+    throw new Error('IndexedDB unavailable in this browser');
+  }
+
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    
+
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
+    // Without this, a version upgrade blocked by another open tab (common
+    // on iOS, where tabs persist) never settles and hangs page loads.
+    // Reject so callers fall back gracefully instead of hanging forever.
+    request.onblocked = () => reject(request.error || new Error('IndexedDB upgrade blocked by another tab'));
     
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
