@@ -1349,7 +1349,12 @@
 
     const holeThemeHost = document.querySelector('[data-hole-theme-setting]');
     if (holeThemeHost) {
-      holeThemeHost.appendChild(createThemeSwitch());
+      try {
+        holeThemeHost.appendChild(createThemeSwitch());
+      } catch (error) {
+        // Theme setup must never block the map/page from initializing.
+        console.warn('Theme switch unavailable:', error);
+      }
     }
 
     registerServiceWorker();

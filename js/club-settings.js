@@ -140,9 +140,15 @@ export function mountClubSettings(container) {
   const metersInputEl = wrapper.querySelector('[data-club-settings-meters]');
   const themeHostEl = wrapper.querySelector('[data-club-settings-theme]');
 
-  themeHostEl.appendChild(createThemeSwitch());
   renderClubList(listEl);
   setupClubListInteractions({ listEl, formEl, nameInputEl, metersInputEl });
+
+  try {
+    themeHostEl.appendChild(createThemeSwitch());
+  } catch (error) {
+    // Theme setup must never block the club list from rendering.
+    console.warn('Theme switch unavailable:', error);
+  }
 
   function setOpen(isOpen) {
     panel.hidden = !isOpen;

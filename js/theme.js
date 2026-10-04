@@ -25,7 +25,11 @@ function readStoredTheme() {
 }
 
 function systemPrefersDark() {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  } catch {
+    return false;
+  }
 }
 
 /** Resolve the active theme: the saved choice, or the system preference. */
@@ -78,14 +82,33 @@ export function initTheme() {
   }
   initialized = true;
 
-  const media = window.matchMedia('(prefers-color-scheme: dark)');
-  media.addEventListener('change', () => {
+  let media;
+  try {
+    media = window.matchMedia('(prefers-color-scheme: dark)');
+  } catch {
+    return;
+  }
+
+  const handleChange = () => {
     if (readStoredTheme()) {
       return; // A saved choice wins over the system preference.
     }
     applyTheme(media.matches ? 'dark' : 'light');
     document.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT));
-  });
+  };
+
+  // Older iOS Safari exposes the deprecated `addListener` instead of
+  // `addEventListener`. Throwing here used to abort the whole page module
+  // (breaking the map and settings), so feature-detect and stay defensive.
+  try {
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', handleChange);
+    } else if (typeof media.addListener === 'function') {
+      media.addListener(handleChange);
+    }
+  } catch {
+    // Theme syncing is best-effort; never let it break the page.
+  }
 }
 
 /**
