@@ -36,6 +36,27 @@
   color: var(--color-muted);
 }
 
+/* Brand wordmark (index header) */
+
+.page-header__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.page-header__logo {
+  display: block;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.page-header__brand .page-header-title {
+  margin-bottom: 0;
+}
+
 .course-page-header {
   display: flex;
   flex-direction: column;
@@ -63,15 +84,21 @@
 /* Back Navigation */
 
 .back-nav {
-  display: inline-block;
-  padding: calc(var(--space-md) + 2px) var(--space-md);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-md);
   font-size: var(--font-size-body);
   font-weight: 500;
   color: var(--color-accent);
   text-decoration: none;
   cursor: pointer;
-  margin: calc(var(--space-md) * -1);
-  padding: var(--space-md);
+}
+
+.back-nav svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .back-nav:hover {
@@ -103,6 +130,11 @@
   background-color: var(--color-surface);
   cursor: pointer;
   line-height: 1;
+}
+
+.header-settings__button svg {
+  width: 20px;
+  height: 20px;
 }
 
 .header-settings__button:focus-visible {
@@ -174,9 +206,123 @@
   display: none;
 }
 
+/* Keep the bottom hole nav tappable while a panel is open, so tapping
+   next/previous hole still navigates instead of only closing the panel. */
+body.hole-page .club-settings__backdrop {
+  bottom: calc(var(--min-touch) + var(--space-sm) * 2 + var(--safe-bottom));
+}
+
 .header-settings .club-settings__list {
   max-height: 240px;
   overflow-y: auto;
+}
+
+/* The first panel section sits flush against the panel border. */
+.club-settings__panel > :first-child {
+  border-top: 0;
+}
+
+.club-settings__list {
+  padding: var(--space-sm) 0;
+}
+
+.club-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  min-height: 44px; /* touch target */
+}
+
+.club-row__name {
+  flex: 1;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.club-row__meters {
+  color: var(--color-muted);
+  min-width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.club-row__edit,
+.club-row__delete,
+.club-row__save,
+.club-row__cancel {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  padding: 2px 6px;
+  min-width: 44px; /* touch target */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.club-row__edit:hover  { color: var(--color-accent); }
+.club-row__delete:hover,
+.club-row__cancel:hover { color: var(--color-destructive); }
+.club-row__save:hover  { color: var(--color-accent); }
+
+.club-add-form {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.club-input {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  min-width: 0;
+}
+
+.club-input--meters {
+  flex: 0 0 68px;
+}
+
+.club-add-btn {
+  font-size: var(--font-size-sm);
+  background: var(--color-accent-solid);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Settings popover mounted in a top page header opens downward instead of up. */
+.page-header__actions .header-settings-mount {
+  flex-shrink: 0;
+}
+
+.page-header .header-settings .club-settings__panel {
+  top: calc(100% + var(--space-xs));
+  bottom: auto;
+  width: min(92vw, 340px);
+  max-height: min(70vh, 480px);
+  border-radius: var(--radius-sm);
+  border-top-right-radius: 0;
+}
+
+.page-header .header-settings__button[aria-expanded="true"] {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: 0;
 }
 
 /* Course Card */
@@ -236,6 +382,11 @@
   color: var(--color-destructive);
 }
 
+.course-card-delete svg {
+  width: 18px;
+  height: 18px;
+}
+
 .course-card-delete:focus-visible {
   outline: 2px solid var(--color-destructive);
   outline-offset: 2px;
@@ -258,6 +409,13 @@
   font-size: 20px;
   color: var(--color-muted);
   flex-shrink: 0;
+  display: inline-flex;
+}
+
+.course-card-chevron svg {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .course-card-address {
@@ -277,13 +435,14 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  background-color: var(--color-accent);
+  background-color: var(--color-accent-solid);
   color: white;
   font-size: var(--font-size-sm);
   font-weight: 500;
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Badge Bullet Point */
@@ -314,7 +473,11 @@
   padding: var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: linear-gradient(180deg, #ffffff 0%, #f7fbf8 100%);
+  background: linear-gradient(
+    180deg,
+    var(--color-surface) 0%,
+    color-mix(in srgb, var(--color-accent) 4%, var(--color-surface)) 100%
+  );
 }
 
 .import-button {
@@ -326,7 +489,7 @@
   padding: 10px var(--space-md);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background-color: var(--color-accent);
+  background-color: var(--color-accent-solid);
   color: #ffffff;
   font-size: var(--font-size-body);
   font-weight: 600;
@@ -337,7 +500,7 @@
 }
 
 .import-button:hover {
-  background-color: var(--color-accent-hover);
+  background-color: var(--color-accent-solid-hover);
 }
 
 .import-button:active {
@@ -352,23 +515,28 @@
 .import-status {
   padding: 10px 12px;
   border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
   font-size: var(--font-size-sm);
   font-weight: 500;
+  text-align: left;
 }
 
 .import-status--loading {
-  background-color: #eef7f1;
-  color: #14532d;
+  background-color: var(--color-info-bg);
+  color: var(--color-info-text);
+  border-left-color: var(--color-accent);
 }
 
 .import-status--success {
-  background-color: #ecfdf3;
-  color: #166534;
+  background-color: var(--color-success-bg);
+  color: var(--color-success-text);
+  border-left-color: var(--color-accent);
 }
 
 .import-status--error {
-  background-color: #fef2f2;
-  color: #991b1b;
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border-left-color: var(--color-destructive);
 }
 
 .import-name-panel {
@@ -460,12 +628,21 @@
 }
 
 .import-name-form__button--primary {
-  background-color: var(--color-accent);
+  background-color: var(--color-accent-solid);
   color: #ffffff;
 }
 
 .import-name-form__button--primary:hover {
-  background-color: var(--color-accent-hover);
+  background-color: var(--color-accent-solid-hover);
+}
+
+.import-name-form__button--destructive {
+  background-color: #dc2626;
+  color: #ffffff;
+}
+
+.import-name-form__button--destructive:hover {
+  background-color: #b91c1c;
 }
 
 @media (min-width: 560px) {
@@ -478,31 +655,106 @@
 
 .loading-state,
 .error-state,
-.empty-state {
+.empty-state,
+.state-loading,
+.state-error,
+.state-empty {
   padding: var(--space-2xl) var(--space-md);
   text-align: center;
 }
 
-.loading-state {
+.loading-state,
+.state-loading {
   color: var(--color-muted);
 }
 
 .loading-heading,
 .error-heading,
-.empty-heading {
+.empty-heading,
+.state-loading-heading,
+.state-error-heading,
+.state-empty-heading {
   font-size: var(--font-size-heading);
   font-weight: 600;
   margin-bottom: var(--space-sm);
 }
 
-.error-heading {
+.error-heading,
+.state-error-heading {
   color: var(--color-destructive);
 }
 
 .error-state p,
-.empty-state p {
+.empty-state p,
+.state-error p,
+.state-empty p,
+.state-loading p {
   font-size: var(--font-size-body);
   color: var(--color-muted);
+}
+
+/* Loading spinner */
+.state-loading::before {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto var(--space-md);
+  border: 3px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-surface));
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: state-spin 0.8s linear infinite;
+}
+
+@keyframes state-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state-loading::before {
+    animation: none;
+  }
+}
+
+/* Empty state guidance */
+.empty-state__icon {
+  display: block;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--space-md);
+  color: var(--color-accent);
+  opacity: 0.9;
+}
+
+.empty-state__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin: var(--space-md) auto;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  max-width: 34ch;
+}
+
+.empty-state__steps li {
+  position: relative;
+  padding-left: var(--space-lg);
+  font-size: var(--font-size-body);
+  color: var(--color-muted);
+}
+
+.empty-state__steps li::before {
+  content: '';
+  position: absolute;
+  left: var(--space-sm);
+  top: 0.5em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
 }
 
 /* Course Detail Container */
@@ -545,8 +797,8 @@
 
 .error-message {
   padding: var(--space-lg);
-  background-color: #fee;
-  border: 1px solid var(--color-destructive);
+  background-color: color-mix(in srgb, var(--color-destructive) 8%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-destructive) 35%, var(--color-surface));
   border-radius: var(--radius-md);
   color: var(--color-destructive);
   font-size: var(--font-size-body);
@@ -633,6 +885,7 @@
   font-weight: 600;
   color: #ffffff;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .tee-pill--blue {
@@ -685,6 +938,7 @@
   font-size: var(--font-size-heading);
   font-weight: 600;
   color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Sticky Bottom Hole Navigation (hole.html) */
@@ -703,6 +957,9 @@
   background-color: var(--color-surface);
   border-top: 1px solid var(--color-border);
   z-index: 10;
+  /* Lift the persistent bottom bar out of the page cross-fade so hole-to-hole
+     navigation morphs it in place instead of blinking. */
+  view-transition-name: hole-nav;
 }
 
 .hole-nav-bar__group {
@@ -766,6 +1023,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  font-variant-numeric: tabular-nums;
 }
 
 .hole-nav-bar .back-nav {
@@ -795,6 +1053,11 @@
   background-color: var(--color-surface);
   cursor: pointer;
   line-height: 1;
+}
+
+.hole-nav-btn svg {
+  width: 20px;
+  height: 20px;
 }
 
 .hole-nav-btn:hover {

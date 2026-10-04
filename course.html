@@ -2,19 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Hole list for a golf course in BanGuide.">
   <title>Course — BanGuide</title>
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a2126">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="alternate icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
   <header class="page-header">
-    <div class="course-page-header">
-      <a href="index.html" class="back-nav">← Courses</a>
-      <div id="courseHeaderInfo" class="course-page-header__info" hidden>
-        <p id="courseHeaderName" class="course-page-header__name"></p>
-        <p id="courseHeaderMeta" class="course-page-header__meta"></p>
+    <div class="page-header__actions">
+      <div class="course-page-header">
+        <a href="index.html" class="back-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>Courses</a>
+        <div id="courseHeaderInfo" class="course-page-header__info" hidden>
+          <p id="courseHeaderName" class="course-page-header__name"></p>
+          <p id="courseHeaderMeta" class="course-page-header__meta"></p>
+        </div>
       </div>
+      <div class="header-settings-mount" id="pageHeaderSettings"></div>
     </div>
   </header>
 
@@ -25,6 +35,7 @@
   <script type="module">
     import { loadCourses, getCourseById } from './js/courses.js';
     import { loadHoles, buildHoleHref } from './js/holes.js';
+    import { mountClubSettings } from './js/club-settings.js';
     import { registerServiceWorker } from './js/offline.js';
 
     const courseContent = document.getElementById('courseContent');
@@ -61,7 +72,7 @@
           <a href="${buildHoleHref(escapeHtml(courseId), h.hole)}" class="hole-list-row">
             <div class="hole-row-header">
               <span>Hole ${h.hole}</span>
-              <span>›</span>
+              <span class="course-card-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
             </div>
             <div class="hole-row-meta">Par ${h.par} · Stroke index ${h.strokeIndex}</div>
           </a>
@@ -160,6 +171,8 @@
       };
       return String(text).replace(/[&<>"']/g, m => map[m]);
     }
+
+    mountClubSettings(document.getElementById('pageHeaderSettings'));
 
     registerServiceWorker();
 

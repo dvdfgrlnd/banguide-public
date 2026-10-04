@@ -2,14 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Offline-first golf hole guide: course maps, yardages, and scorecards.">
   <title>BanGuide — Stockholm Golf Courses</title>
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a2126">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="alternate icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
   <header class="page-header">
-    <h1 class="page-header-title">BanGuide</h1>
+    <div class="page-header__actions">
+      <div class="page-header__brand">
+        <img src="icons/icon.svg" alt="" class="page-header__logo">
+        <h1 class="page-header-title">BanGuide</h1>
+      </div>
+      <div class="header-settings-mount" id="pageHeaderSettings"></div>
+    </div>
     <p class="page-header-subtitle" id="subtitle">Stockholm golf courses · …</p>
   </header>
 
@@ -33,7 +46,7 @@
         accept=".tar,.tar.gz,.tgz,application/gzip,application/x-gzip,application/x-tar"
       />
       <button id="importBtn" class="import-button">Import Course Package</button>
-      <div id="importStatus" class="import-status" style="display: none;"></div>
+      <div id="importStatus" class="import-status" style="display: none;" role="status" aria-live="polite"></div>
 
       <div id="importModePanel" class="import-name-panel" hidden>
         <button type="button" class="import-name-panel__backdrop" data-import-mode-cancel aria-label="Close import type panel"></button>
@@ -66,10 +79,24 @@
         </section>
       </div>
     </div>
+
+    <!-- Delete confirmation dialog -->
+    <div id="deleteConfirmPanel" class="import-name-panel" hidden>
+      <button type="button" class="import-name-panel__backdrop" data-delete-cancel aria-label="Close delete confirmation"></button>
+      <section class="import-name-panel__dialog" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
+        <h2 id="deleteConfirmTitle" class="import-name-panel__title">Delete course?</h2>
+        <p class="import-name-panel__body"><strong id="deleteConfirmName"></strong> and its holes and images will be removed from this device. This can't be undone.</p>
+        <div class="import-name-form__actions">
+          <button type="button" class="import-name-form__button import-name-form__button--secondary" data-delete-cancel>Cancel</button>
+          <button type="button" id="deleteConfirmBtn" class="import-name-form__button import-name-form__button--destructive">Delete</button>
+        </div>
+      </section>
+    </div>
   </main>
 
   <script type="module">
     import { loadCourses, renderCourseCount, createCourseCard, deleteCourse, importCourse } from './js/courses.js';
+    import { mountClubSettings } from './js/club-settings.js';
     import { registerServiceWorker } from './js/offline.js';
 
     const courseList = document.getElementById('courseList');
@@ -87,8 +114,14 @@
     const importNameForm = document.getElementById('importNameForm');
     const importCourseNameInput = document.getElementById('importCourseName');
     const importCancelButtons = document.querySelectorAll('[data-import-cancel]');
+    const deleteConfirmPanel = document.getElementById('deleteConfirmPanel');
+    const deleteConfirmBtn = document.getElementById('deleteConfirmBtn');
+    const deleteConfirmName = document.getElementById('deleteConfirmName');
+    const deleteCancelButtons = document.querySelectorAll('[data-delete-cancel]');
 
     let pendingImportFiles = null;
+    let pendingDelete = null;
+    let lastFocusedDeleteButton = null;
     let isDeletingCourse = false;
 
     function isArchiveSelection(files) {
@@ -198,13 +231,19 @@
           // Empty state with import guidance
           courseList.innerHTML = `
             <li class="empty-state">
+              <svg class="empty-state__icon" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M96 372 Q256 300 416 372"/>
+                <line x1="228" y1="112" x2="228" y2="344"/>
+                <path d="M228 128 L342 160 L228 192" fill="currentColor" stroke="none"/>
+                <circle cx="188" cy="396" r="20" fill="currentColor" stroke="none"/>
+              </svg>
               <h2 class="empty-heading">No courses yet</h2>
-              <p>Get started by importing a course package. You'll need:</p>
-              <ul>
+              <p>Get started by importing a course package:</p>
+              <ol class="empty-state__steps">
                 <li>A <strong>holes.json</strong> file with hole metadata</li>
-                <li>Course images (<strong>hole-1.jpg</strong>, <strong>hole-2.jpg</strong>, etc.)</li>
-              </ul>
-              <p>Import either a course folder or a <strong>.tar.gz</strong> package to get started.</p>
+                <li>Hole images (<strong>hole_1.jpg</strong>, <strong>hole_2.jpg</strong>, …)</li>
+              </ol>
+              <p>Import a course folder or a <strong>.tar.gz</strong> package below.</p>
             </li>
           `;
           importSection.style.display = 'block';
@@ -232,25 +271,47 @@
       }
     }
 
-    async function handleCourseDelete(button) {
-      if (isDeletingCourse) {
-        return;
-      }
-
+    function openDeleteConfirm(button) {
       const courseId = button.dataset.courseId;
-      const courseName = button.dataset.courseName || 'this course';
-
       if (!courseId) {
         return;
       }
 
-      const confirmed = window.confirm(`Delete "${courseName}"? This removes its holes and images from this device.`);
-      if (!confirmed) {
+      pendingDelete = {
+        courseId,
+        courseName: button.dataset.courseName || 'this course'
+      };
+      lastFocusedDeleteButton = button;
+
+      deleteConfirmName.textContent = `"${pendingDelete.courseName}"`;
+      deleteConfirmPanel.hidden = false;
+      deleteConfirmBtn.focus();
+    }
+
+    function closeDeleteConfirm() {
+      pendingDelete = null;
+      deleteConfirmPanel.hidden = true;
+      if (lastFocusedDeleteButton) {
+        lastFocusedDeleteButton.focus();
+        lastFocusedDeleteButton = null;
+      }
+    }
+
+    async function handleCourseDelete() {
+      if (isDeletingCourse || !pendingDelete) {
+        return;
+      }
+
+      const { courseId, courseName } = pendingDelete;
+
+      if (!courseId) {
+        closeDeleteConfirm();
         return;
       }
 
       try {
         isDeletingCourse = true;
+        closeDeleteConfirm();
         showStatus(`Deleting "${courseName}"…`, 'loading');
         await deleteCourse(courseId);
         await refreshCourseList();
@@ -289,14 +350,30 @@
       });
     });
 
-    courseList.addEventListener('click', async (event) => {
+    courseList.addEventListener('click', (event) => {
       const deleteButton = event.target.closest('[data-action="delete-course"]');
       if (!deleteButton) {
         return;
       }
 
       event.preventDefault();
-      await handleCourseDelete(deleteButton);
+      openDeleteConfirm(deleteButton);
+    });
+
+    deleteConfirmBtn.addEventListener('click', () => {
+      handleCourseDelete();
+    });
+
+    deleteCancelButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        closeDeleteConfirm();
+      });
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !deleteConfirmPanel.hidden) {
+        closeDeleteConfirm();
+      }
     });
 
     // Set up import file handler
@@ -334,7 +411,7 @@
 
         const result = await importCourse(pendingImportFiles, courseName);
 
-        showStatus(`✓ Imported "${result.courseName}" with ${result.holeCount} holes`, 'success');
+        showStatus(`Imported "${result.courseName}" with ${result.holeCount} holes`, 'success');
 
         setTimeout(() => {
           refreshCourseList();
@@ -345,13 +422,15 @@
         }, 1500);
       } catch (error) {
         console.error('Import failed:', error);
-        showStatus(`✗ Import failed: ${error.message}`, 'error');
+        showStatus(`Import failed: ${error.message}`, 'error');
         pendingImportFiles = null;
         importInput.value = '';
         importArchiveInput.value = '';
         closeImportNamePanel();
       }
     });
+
+    mountClubSettings(document.getElementById('pageHeaderSettings'));
 
     registerServiceWorker();
 

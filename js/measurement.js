@@ -129,7 +129,12 @@ export function initMeasurement({ map, isCalibrated, onStateChange = () => {}, s
 
     _tapDelayTimer = setTimeout(() => {
       _tapDelayTimer = null;
-      if (measurePoints.length >= 2) measurePoints = [];
+      if (measurePoints.length >= 2) {
+        // A third tap clears the measurement instead of starting a new one.
+        clearMeasurementLayer();
+        emitState(HINT_START);
+        return;
+      }
       measurePoints.push(latlng);
       renderLayer();
 

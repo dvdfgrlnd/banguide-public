@@ -72,6 +72,14 @@ export function renderCourseCount(count) {
 }
 
 /**
+ * Inline SVG icon markup (stroke follows currentColor)
+ */
+const ICONS = {
+  chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>'
+};
+
+/**
  * Create a course card element with separate navigation and delete controls.
  * @param {Object} course - Course object with id, name, address, holes, par
  * @returns {HTMLElement} Course card container element
@@ -84,7 +92,7 @@ export function createCourseCard(course) {
     <a class="course-card" href="course.html?id=${encodeURIComponent(course.id)}">
       <div class="course-card-header">
         <div class="course-card-name">${escapeHtml(course.name)}</div>
-        <div class="course-card-chevron">›</div>
+        <div class="course-card-chevron">${ICONS.chevron}</div>
       </div>
       <div class="course-card-address">${escapeHtml(course.address)}</div>
       <div class="course-card-meta">
@@ -107,7 +115,7 @@ export function createCourseCard(course) {
       aria-label="Delete ${escapeHtml(course.name)}"
       title="Delete ${escapeHtml(course.name)}"
     >
-      ×
+      ${ICONS.trash}
     </button>
   `;
 

@@ -117,7 +117,11 @@ export function initHoleMap({ container, hole, getmetersPerPixel } = {}) {
     // CRS.Simple maps often need negative zoom to fit tall images in short viewports.
     minZoom: -5,
     maxZoom: 3,
-    zoomSnap: 0.25,
+    // Continuous zoom. Leaflet's _limitZoom() rounds to the nearest zoomSnap,
+    // so any non-zero value makes pinch and drag-to-zoom move in visible steps.
+    zoomSnap: 0,
+    // Keep animations on for a smooth pinch/zoom feel.
+    zoomAnimation: true,
     attributionControl: true
   });
 

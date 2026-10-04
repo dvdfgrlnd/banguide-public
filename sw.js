@@ -1,7 +1,7 @@
 const DEV_MODE = false; // Set to false for production
 
-const APP_CACHE = 'banguide-v18';
-const RUNTIME_CACHE = 'banguide-runtime-v18';
+const APP_CACHE = 'banguide-v20';
+const RUNTIME_CACHE = 'banguide-runtime-v20';
 
 const SHELL_ASSETS = [
   './',
@@ -9,6 +9,7 @@ const SHELL_ASSETS = [
   './course.html',
   './hole.html',
   './offline.html',
+  './manifest.webmanifest',
   './css/main.css',
   './css/components.css',
   './css/map.css',
@@ -17,11 +18,24 @@ const SHELL_ASSETS = [
   './js/map.js',
   './js/overlay.js',
   './js/clubs.js',
+  './js/club-settings.js',
   './js/offline.js',
   './js/imported-data.js',
   './js/archive-import.js',
   './js/measurement.js',
-  './js/scorecards.js'
+  './js/scorecards.js',
+  './vendor/leaflet/leaflet.js',
+  './vendor/leaflet/leaflet.css',
+  './vendor/leaflet/images/layers.png',
+  './vendor/leaflet/images/layers-2x.png',
+  './vendor/leaflet/images/marker-icon.png',
+  './vendor/leaflet/images/marker-icon-2x.png',
+  './vendor/leaflet/images/marker-shadow.png',
+  './icons/icon.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-192.png',
+  './icons/icon-maskable-512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -44,19 +58,31 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-async function networkFirstNavigation(request) {
-  try {
-    const networkResponse = await fetch(request);
-    const cache = await caches.open(RUNTIME_CACHE);
-    cache.put(request, networkResponse.clone());
-    return networkResponse;
-  } catch {
-    const cachedPage = await caches.match(request);
-    if (cachedPage) return cachedPage;
+// Serve a cached page immediately when we have one, and refresh it in the
+// background. This keeps repeat hole-to-hole navigation instant (the whole app
+// is static) while still picking up new builds on the next visit.
+async function staleWhileRevalidateNavigation(request) {
+  const cache = await caches.open(RUNTIME_CACHE);
+  const cachedPage = await cache.match(request);
 
-    const offlinePage = await caches.match('./offline.html');
-    return offlinePage || Response.error();
+  const networkRequest = fetch(request)
+    .then((networkResponse) => {
+      if (networkResponse && networkResponse.ok) {
+        cache.put(request, networkResponse.clone()).catch(() => {});
+      }
+      return networkResponse;
+    })
+    .catch(() => null);
+
+  if (cachedPage) {
+    return cachedPage;
   }
+
+  const networkResponse = await networkRequest;
+  if (networkResponse) return networkResponse;
+
+  const offlinePage = await caches.match('./offline.html');
+  return offlinePage || Response.error();
 }
 
 async function cacheFirst(request) {
@@ -80,7 +106,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirstNavigation(request));
+    event.respondWith(staleWhileRevalidateNavigation(request));
     return;
   }
 

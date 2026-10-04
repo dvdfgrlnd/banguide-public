@@ -12,7 +12,7 @@
   min-height: 200px;
   border-radius: var(--radius-md);
   overflow: hidden;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   margin-bottom: 0;
   position: relative;
   user-select: none;
@@ -21,7 +21,7 @@
 }
 
 .hole-map.leaflet-container {
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 .hole-map img,
@@ -71,7 +71,7 @@
 }
 
 .leaflet-control-attribution {
-  background: rgba(255, 255, 255, 0.7) !important;
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent) !important;
   font-size: 10px !important;
   color: var(--color-muted) !important;
 }
@@ -84,46 +84,6 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-}
-
-.hole-page #holeContent,
-.hole-page #holeNav {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 180ms ease, transform 220ms ease;
-  will-change: opacity, transform;
-}
-
-.hole-page.is-entering #holeContent,
-.hole-page.is-entering #holeNav {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-.hole-page.is-leaving #holeContent,
-.hole-page.is-leaving #holeNav {
-  opacity: 0;
-  transform: translateY(-8px);
-  pointer-events: none;
-}
-
-.hole-page.is-leaving .hole-map--loading::after {
-  animation-play-state: paused;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hole-page #holeContent,
-  .hole-page #holeNav {
-    transform: none;
-    transition-duration: 1ms;
-  }
-
-  .hole-page.is-entering #holeContent,
-  .hole-page.is-entering #holeNav,
-  .hole-page.is-leaving #holeContent,
-  .hole-page.is-leaving #holeNav {
-    transform: none;
-  }
 }
 
 .hole-summary {
@@ -153,6 +113,7 @@
   font-size: var(--font-size-heading);
   font-weight: 700;
   color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .hole-info-panel__content {
@@ -342,7 +303,7 @@ button.scorecard-stepper__value {
   border-style: dashed;
   border-color: var(--color-accent);
   color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 8%, white);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
 }
 
 .scorecard-tables {
@@ -406,11 +367,11 @@ button.scorecard-stepper__value {
 .scorecard-table__total {
   font-weight: 700;
   color: var(--color-text);
-  background: color-mix(in srgb, var(--color-accent) 10%, white);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
 }
 
 .scorecard-table .is-current-hole {
-  background: color-mix(in srgb, var(--color-accent) 14%, white);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
   color: var(--color-text);
   font-weight: 700;
 }
@@ -522,8 +483,12 @@ button.scorecard-stepper__value {
   right: var(--space-sm);
   z-index: 430;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: var(--space-xs);
+  max-width: calc(100% - var(--space-sm) * 2);
 }
 
 .map-calibration-warning {
@@ -533,9 +498,9 @@ button.scorecard-stepper__value {
   z-index: 425;
   font-size: 12px;
   font-weight: 600;
-  color: #7a2100;
-  background: rgba(255, 243, 205, 0.96);
-  border: 1px solid #f0b429;
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
   border-radius: var(--radius-sm);
   padding: 6px 10px;
   max-width: min(68%, 320px);
@@ -546,7 +511,7 @@ button.scorecard-stepper__value {
 .overlay-toggle-btn {
   font-size: var(--font-size-sm);
   color: var(--color-accent);
-  background: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
   border: 1px solid var(--color-accent);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
@@ -557,6 +522,7 @@ button.scorecard-stepper__value {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .overlay-toggle-btn:disabled {
@@ -565,9 +531,9 @@ button.scorecard-stepper__value {
 }
 
 .overlay-toggle-btn--active {
-  background: rgba(31, 120, 180, 0.12);
-  border-color: #1f78b4;
-  color: #1f78b4;
+  background: color-mix(in srgb, var(--color-overlay) 12%, var(--color-surface));
+  border-color: var(--color-overlay);
+  color: var(--color-overlay);
 }
 
 /* Overlay circle inline labels (Leaflet divIcon) */
@@ -580,12 +546,13 @@ button.scorecard-stepper__value {
 .overlay-label span {
   font-size: 11px;
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.85);
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
   padding: 1px 4px;
   border-radius: 2px;
   white-space: nowrap;
   pointer-events: none;
   line-height: 1.4;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Club Settings Panel ───────────────────────────────── */
@@ -615,90 +582,6 @@ button.scorecard-stepper__value {
 
 .club-settings[open] .club-settings__trigger {
   border-bottom: 1px solid var(--color-border);
-}
-
-.club-settings__list {
-  padding: var(--space-sm) 0;
-}
-
-.club-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  font-size: var(--font-size-sm);
-  min-height: 44px; /* touch target */
-}
-
-.club-row__name {
-  flex: 1;
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.club-row__meters {
-  color: var(--color-muted);
-  min-width: 48px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.club-row__edit,
-.club-row__delete,
-.club-row__save,
-.club-row__cancel {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--color-muted);
-  padding: 2px 6px;
-  min-width: 44px; /* touch target */
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.club-row__edit:hover  { color: var(--color-accent); }
-.club-row__delete:hover,
-.club-row__cancel:hover { color: var(--color-destructive); }
-.club-row__save:hover  { color: #4caf50; }
-
-.club-add-form {
-  display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-md) var(--space-md);
-  border-top: 1px solid var(--color-border);
-}
-
-.club-input {
-  flex: 1;
-  font-size: var(--font-size-sm);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 6px 8px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  min-width: 0;
-}
-
-.club-input--meters {
-  flex: 0 0 68px;
-}
-
-.club-add-btn {
-  font-size: var(--font-size-sm);
-  background: var(--color-accent);
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 6px 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .map-calibration {
@@ -731,7 +614,7 @@ button.scorecard-stepper__value {
 }
 
 .map-calibration__start--active {
-  background: rgba(31, 120, 180, 0.08);
+  background: color-mix(in srgb, var(--color-overlay) 8%, var(--color-surface));
 }
 
 .map-calibration__panel {
@@ -756,7 +639,7 @@ button.scorecard-stepper__value {
 }
 
 .map-calibration__apply {
-  background: var(--color-accent);
+  background: var(--color-accent-solid);
   color: #fff;
 }
 
@@ -792,19 +675,20 @@ button.scorecard-stepper__value {
 
 .measure-tooltip__text {
   display: inline-block;
-  background: rgba(255, 255, 255, 0.98);
-  border: 2px solid #e63946;
+  background: color-mix(in srgb, var(--color-surface) 98%, transparent);
+  border: 2px solid var(--color-measure);
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: #111111;
+  color: var(--color-text);
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(1.5px);
   -webkit-backdrop-filter: blur(1.5px);
+  font-variant-numeric: tabular-nums;
 }
 
 /* GPS layer */

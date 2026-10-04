@@ -2,36 +2,61 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hole - BanGuide</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Interactive golf hole map with yardages, calibration, and scoring.">
+  <title>Hole — BanGuide</title>
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a2126">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="alternate icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/map.css">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <style>
+    /* Cross-document view transitions make hole-to-hole navigation feel like an
+       in-place update instead of a page reload. Only hole.html opts in, so
+       entering/leaving the hole view is unaffected. The bottom nav bar is lifted
+       out of the root cross-fade via its own view-transition-name (see
+       .hole-nav-bar in components.css) so it stays put instead of blinking. */
+    @view-transition {
+      navigation: auto;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      ::view-transition-group(root),
+      ::view-transition-group(hole-nav),
+      ::view-transition-old(root),
+      ::view-transition-old(hole-nav),
+      ::view-transition-new(root),
+      ::view-transition-new(hole-nav) {
+        animation-duration: 0.01ms !important;
+      }
+    }
+  </style>
+  <script src="vendor/leaflet/leaflet.js"></script>
 </head>
-<body class="hole-page is-entering">
+<body class="hole-page">
   <main class="page" id="holeContent">
     <p class="state-loading">Loading hole…</p>
   </main>
 
-  <nav class="hole-nav-bar" id="holeNav" aria-label="Hole navigation" hidden>
+  <!-- Rendered from first paint (not `hidden`) so the bottom bar stays visually
+       stable across hole navigations instead of blinking in after JS runs. -->
+  <nav class="hole-nav-bar" id="holeNav" aria-label="Hole navigation">
     <div class="hole-nav-bar__group hole-nav-bar__group--left">
-      <a href="index.html" id="backLink" class="back-nav">← Back</a>
-      <div class="header-settings" id="clubSettings" hidden>
-        <button id="clubSettingsToggle" class="header-settings__button" type="button" aria-label="Club settings" aria-expanded="false" aria-controls="clubSettingsPanel">
-          <span aria-hidden="true">⚙</span>
+      <a href="index.html" id="backLink" class="back-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>Back</a>
+      <div class="header-settings" id="clubSettings">
+        <button id="clubSettingsToggle" class="header-settings__button" type="button" aria-label="Map settings" aria-expanded="false" aria-controls="clubSettingsPanel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
-        <button id="clubSettingsBackdrop" class="club-settings__backdrop" type="button" aria-label="Close club settings" hidden></button>
+        <button id="clubSettingsBackdrop" class="club-settings__backdrop" type="button" aria-label="Close map settings" hidden></button>
         <div class="club-settings__panel" id="clubSettingsPanel" hidden>
-          <div class="club-settings__list" id="clubList" aria-live="polite"></div>
-          <form class="club-add-form" id="addClubForm" novalidate>
-            <input type="text" id="newClubName" class="club-input" placeholder="Club (e.g. 7-iron)" maxlength="20" autocomplete="off">
-            <input type="number" id="newClubmeters" class="club-input club-input--meters" placeholder="meters" min="1" max="366" autocomplete="off">
-            <button type="submit" class="club-add-btn">Add</button>
-          </form>
           <section class="gps-debug" aria-label="GPS debug">
             <p class="gps-status" id="gpsStatus">GPS is off.</p>
+            <button id="toggleGPSClubLinesBtn" class="map-calibration__start" type="button" aria-label="Enable GPS and show club radius lines">Enable GPS</button>
             <button id="gpsSetAnchorBtn" class="map-calibration__start" type="button" hidden>Set anchor on map</button>
             <button id="gpsClearAnchorBtn" class="map-calibration__cancel" type="button" hidden>Clear anchor</button>
             <button id="gpsSimulateBtn" class="map-calibration__start" type="button">Simulate GPS walk</button>
@@ -67,16 +92,57 @@
     </div>
 
     <div class="hole-nav-bar__group hole-nav-bar__group--right">
-      <a href="#" id="prevHole" class="hole-nav-btn hole-nav-btn--prev" aria-label="Previous hole">‹</a>
-      <a href="#" id="nextHole" class="hole-nav-btn hole-nav-btn--next" aria-label="Next hole">›</a>
+      <a id="prevHole" class="hole-nav-btn hole-nav-btn--prev hole-nav-btn--disabled" aria-label="Previous hole"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+      <a id="nextHole" class="hole-nav-btn hole-nav-btn--next hole-nav-btn--disabled" aria-label="Next hole"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
     </div>
   </nav>
 
+  <!-- Runs during parsing (before the deferred module + async data load) so the
+       bottom bar already shows the right hole when the cross-document view
+       transition captures the new page. Hole summaries for the course are cached
+       in sessionStorage by the module below, so switching between holes prefills
+       both the title and the par/stroke-index line. On a cold load it falls back
+       to a provisional label and the module refines it once data resolves. -->
+  <script>
+    (function prefillHoleNav() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const courseId = params.get('id');
+        const holeNum = parseInt(params.get('hole'), 10);
+        if (!Number.isInteger(holeNum) || holeNum < 1) {
+          return;
+        }
+
+        let label = null;
+        let holeMeta = null;
+        if (courseId) {
+          const cached = sessionStorage.getItem(`banguide_holes_${courseId}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            label = parsed?.label || null;
+            holeMeta = (parsed?.holes || []).find((h) => Number(h.hole) === holeNum) || null;
+          }
+        }
+
+        const title = document.getElementById('holeInfoTitle');
+        const meta = document.getElementById('holeInfoMeta');
+        if (title) {
+          title.textContent = label ? `${label} · Hole ${holeNum}` : `Hole ${holeNum}`;
+        }
+        if (meta) {
+          meta.textContent = holeMeta ? `Par ${holeMeta.par} · SI ${holeMeta.strokeIndex}` : 'Loading…';
+        }
+      } catch {
+        // Prefill is best-effort; the module still renders the real values.
+      }
+    })();
+  </script>
+
   <script type="module">
     import { loadCourses, getCourseById } from './js/courses.js';
-    import { loadHoles, getHoleData, buildHoleHref } from './js/holes.js';
+    import { loadHoles, getHoleData, buildHoleHref, resolveHoleImage } from './js/holes.js';
     import { initHoleMap } from './js/map.js';
-    import { loadClubs, addClub, updateClub, deleteClub } from './js/clubs.js';
+    import { loadClubs } from './js/clubs.js';
     import { listCourseRounds, getActiveRound, setActiveRound, createRound, updateRoundHoleStrokes, getRoundSummary, getScorecardSections } from './js/scorecards.js';
     import { initDistanceOverlay } from './js/overlay.js';
     import { initGPS, destroyGPS, isSimulationActive, loadAnchor, clearAnchor, getGPSState, latLngToMapPixel } from './js/gps.js';
@@ -105,7 +171,6 @@
     const gpsSimulateBtn = document.getElementById('gpsSimulateBtn');
     const gpsSimulateStatus = document.getElementById('gpsSimulateStatus');
     const MAP_CALIBRATION_STORAGE_KEY = 'banguide_map_calibration_v1';
-    const HOLE_NAV_TRANSITION_MS = 180;
     const ROUND_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
       month: 'short',
       day: 'numeric',
@@ -117,10 +182,6 @@
     let gpsController = null;
     const GPS_ACTIVE_STORAGE_KEY = 'banguide_gps_active';
     let gpsActive = false;
-
-    function prefersReducedMotion() {
-      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    }
 
     function loadGPSActive() {
       try {
@@ -139,10 +200,6 @@
       }
     }
 
-    function getHoleNavDelay() {
-      return prefersReducedMotion() ? 0 : HOLE_NAV_TRANSITION_MS;
-    }
-
     function ignoreModifiedHoleNavigation(event, link) {
       return !link
         || !link.href
@@ -154,14 +211,6 @@
         || event.shiftKey
         || event.altKey
         || link.target === '_blank';
-    }
-
-    function finishHolePageEntry() {
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-          document.body.classList.remove('is-entering');
-        });
-      });
     }
 
     function handleHoleNavigation(event) {
@@ -185,12 +234,10 @@
         gpsController.destroy();
         gpsController = null;
       }
-      document.body.classList.remove('is-entering');
-      document.body.classList.add('is-leaving');
 
-      window.setTimeout(() => {
-        window.location.assign(link.href);
-      }, getHoleNavDelay());
+      // Navigate immediately. The bottom nav bar is persistent chrome, so an
+      // exit fade/slide only made hole-to-hole switching feel slower.
+      window.location.assign(link.href);
     }
 
     function buildCalibrationKey(courseId, holeNumber) {
@@ -396,10 +443,14 @@
         ]);
 
         const course = courseId ? getCourseById(courses, courseId) : null;
-        const hole = getHoleData(holes, holeNum);
+        let hole = getHoleData(holes, holeNum);
+        // Resolve only the visible hole's image/dimensions. Resolving all holes
+        // here meant an IndexedDB read + image decode per hole on every load.
+        hole = await resolveHoleImage(courseId, hole);
         const holeMapConfig = hole && hole.map ? { ...hole.map } : null;
 
         if (!hole || isNaN(holeNum) || holeNum < 1 || holeNum > holes.length) {
+          holeNav.setAttribute('hidden', '');
           clubSettings?.setAttribute('hidden', '');
           holeInfoTrigger?.setAttribute('hidden', '');
           if (holeDetailsContent) {
@@ -414,11 +465,22 @@
             </div>
           `;
           document.title = 'Hole not found - BanGuide';
-          finishHolePageEntry();
           return;
         }
 
         const courseLabel = course ? course.name : courseId;
+
+        // Cache the hole summaries so the next hole can prefill the bottom bar
+        // during parsing (see prefillHoleNav above), keeping the bar's text
+        // stable across the cross-document view transition.
+        try {
+          sessionStorage.setItem(`banguide_holes_${courseId}`, JSON.stringify({
+            label: courseLabel,
+            holes: holes.map((h) => ({ hole: h.hole, par: h.par, strokeIndex: h.strokeIndex }))
+          }));
+        } catch {
+          // ignore storage failures
+        }
 
         const defaultmetersPerPixel = Number(holeMapConfig?.metersPerPixel);
         const savedmetersPerPixel = loadCalibrationmetersPerPixel(courseId, hole.hole);
@@ -597,15 +659,12 @@
               Calibration needed: distance overlays may be inaccurate.
             </div>
             <div class="map-top-right-actions">
-              <div id="gpsClubLinesActions">
-                <button id="toggleGPSClubLinesBtn" class="overlay-toggle-btn" type="button" aria-label="Enable GPS and show club radius lines">Enable GPS</button>
-              </div>
               <div id="measurementActions" hidden>
                 <button id="clearMeasurementBtn" class="overlay-toggle-btn" type="button" aria-label="Clear measurement">Clear measurement</button>
               </div>
+              <button id="clearOverlayBtn" class="overlay-toggle-btn" type="button" aria-label="Clear club radius lines" hidden>Clear club lines</button>
             </div>
             <div id="overlayToggle" class="overlay-toggle-row" hidden>
-              <button id="clearOverlayBtn" class="overlay-toggle-btn" type="button" aria-label="Clear club radius lines" hidden>Clear club lines</button>
               <button id="measureDistanceBtn" class="overlay-toggle-btn" type="button" aria-label="Measure distance between two points" hidden>Measure distance</button>
             </div>
           </div>
@@ -687,7 +746,6 @@
         const calibrationWarning = document.getElementById('mapCalibrationWarning');
         const measurementActions = document.getElementById('measurementActions');
         const clearMeasurementBtn = document.getElementById('clearMeasurementBtn');
-        const gpsClubLinesActions = document.getElementById('gpsClubLinesActions');
         const toggleGPSClubLinesBtn = document.getElementById('toggleGPSClubLinesBtn');
         const toggleRow = document.getElementById('overlayToggle');
         const clearOverlayBtn = document.getElementById('clearOverlayBtn');
@@ -995,7 +1053,7 @@
           if (toggleGPSClubLinesBtn) {
             toggleGPSClubLinesBtn.textContent = gpsActive ? 'Disable GPS' : 'Enable GPS';
             toggleGPSClubLinesBtn.setAttribute('aria-label', gpsActive ? 'Disable GPS and hide club radius lines' : 'Enable GPS and show club radius lines');
-            toggleGPSClubLinesBtn.classList.toggle('overlay-toggle-btn--active', gpsActive);
+            toggleGPSClubLinesBtn.classList.toggle('map-calibration__start--active', gpsActive);
           }
         }
 
@@ -1231,66 +1289,6 @@
         gpsActive = loadGPSActive();
         setupMap();
 
-        function renderClubList() {
-          const list = document.getElementById('clubList');
-          if (!list) return;
-          const clubs = loadClubs();
-          list.innerHTML = clubs.map((club, i) => `
-            <div class="club-row" data-index="${i}">
-              <span class="club-row__name">${escapeHtml(club.name)}</span>
-              <span class="club-row__meters">${club.meters} m</span>
-              <button class="club-row__edit" data-action="edit" data-index="${i}" type="button" aria-label="Edit ${escapeHtml(club.name)}">Edit</button>
-              <button class="club-row__delete" data-action="delete" data-index="${i}" type="button" aria-label="Delete ${escapeHtml(club.name)}">✕</button>
-            </div>
-          `).join('');
-        }
-
-        renderClubList();
-
-        document.getElementById('clubList').addEventListener('click', (e) => {
-          const btn = e.target.closest('[data-action]');
-          if (!btn) return;
-          const idx = parseInt(btn.dataset.index, 10);
-          const action = btn.dataset.action;
-
-          if (action === 'delete') {
-            deleteClub(idx);
-            renderClubList();
-          } else if (action === 'edit') {
-            const row = btn.closest('.club-row');
-            const clubs = loadClubs();
-            const club = clubs[idx];
-            row.innerHTML = `
-              <input type="text" class="club-input club-edit-name" value="${escapeHtml(club.name)}" maxlength="20">
-              <input type="number" class="club-input club-input--meters club-edit-meters" value="${club.meters}" min="1" max="366">
-              <button class="club-row__save" data-action="save" data-index="${idx}" type="button">Save</button>
-              <button class="club-row__cancel" data-action="cancel" type="button">✕</button>
-            `;
-          } else if (action === 'save') {
-            const row = btn.closest('.club-row');
-            const name = row.querySelector('.club-edit-name').value.trim();
-            const meters = parseInt(row.querySelector('.club-edit-meters').value, 10);
-            if (name && meters > 0 && meters <= 366) {
-              updateClub(idx, name, meters);
-              renderClubList();
-            }
-          } else if (action === 'cancel') {
-            renderClubList();
-          }
-        });
-
-        document.getElementById('addClubForm').addEventListener('submit', (e) => {
-          e.preventDefault();
-          const name = document.getElementById('newClubName').value.trim();
-          const meters = parseInt(document.getElementById('newClubmeters').value, 10);
-          if (name && meters > 0 && meters <= 366) {
-            addClub(name, meters);
-            document.getElementById('newClubName').value = '';
-            document.getElementById('newClubmeters').value = '';
-            renderClubList();
-          }
-        });
-
         const totalHoles = holes.length;
         const isFirst = hole.hole === 1;
         const isLast = hole.hole === totalHoles;
@@ -1312,9 +1310,9 @@
         }
 
         holeNav.removeAttribute('hidden');
-        finishHolePageEntry();
       } catch (error) {
         console.error('Error loading hole:', error);
+        holeNav.setAttribute('hidden', '');
         clubSettings?.setAttribute('hidden', '');
         holeInfoTrigger?.setAttribute('hidden', '');
         closeClubSettingsPanel();
@@ -1329,7 +1327,6 @@
           </div>
         `;
         document.title = 'Error - BanGuide';
-        finishHolePageEntry();
       }
     }
 
