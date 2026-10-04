@@ -7,6 +7,21 @@
   <title>BanGuide — Stockholm Golf Courses</title>
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a2126">
+  <script>
+    // Apply the saved (or system) theme before styles paint to avoid a flash.
+    (function () {
+      var stored = null;
+      try { stored = localStorage.getItem('banguide_theme_v1'); } catch (e) {}
+      var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var theme = (stored === 'light' || stored === 'dark') ? stored : (dark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) {
+        meta.setAttribute('content', theme === 'dark' ? '#1a2126' : '#ffffff');
+        meta.removeAttribute('media');
+      }
+    })();
+  </script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   <link rel="alternate icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">

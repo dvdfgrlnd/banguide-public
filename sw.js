@@ -1,7 +1,7 @@
 const DEV_MODE = false; // Set to false for production
 
-const APP_CACHE = 'banguide-v20';
-const RUNTIME_CACHE = 'banguide-runtime-v20';
+const APP_CACHE = 'banguide-v21';
+const RUNTIME_CACHE = 'banguide-runtime-v21';
 
 const SHELL_ASSETS = [
   './',
@@ -19,6 +19,7 @@ const SHELL_ASSETS = [
   './js/overlay.js',
   './js/clubs.js',
   './js/club-settings.js',
+  './js/theme.js',
   './js/offline.js',
   './js/imported-data.js',
   './js/archive-import.js',

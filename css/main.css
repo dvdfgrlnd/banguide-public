@@ -68,37 +68,39 @@
   --content-max-width: 640px;
   --page-padding: var(--space-md);
 
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 /* Dark theme — mirrors the light palette; comfortable in low light and
-   easier on the eyes at dusk. Map images are unchanged; only chrome adapts. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg:           #0f1517;
-    --color-surface:      #1a2126;
-    --color-accent:       #37a86b;
-    --color-accent-hover: #2c8f58;
-    --color-accent-solid: #227a41;
-    --color-accent-solid-hover: #1b6b3a;
-    --color-text:         #e8ecef;
-    --color-muted:        #98a2ab;
-    --color-border:       #2b353c;
-    --color-destructive: #f87171;
+   easier on the eyes at dusk. Map images are unchanged; only chrome adapts.
+   The active theme is set by js/theme.js (and an inline boot script) via
+   data-theme on <html>, based on the saved preference or the system setting. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
 
-    --color-overlay:      #5aa9d6;
+  --color-bg:           #0f1517;
+  --color-surface:      #1a2126;
+  --color-accent:       #37a86b;
+  --color-accent-hover: #2c8f58;
+  --color-accent-solid: #227a41;
+  --color-accent-solid-hover: #1b6b3a;
+  --color-text:         #e8ecef;
+  --color-muted:        #98a2ab;
+  --color-border:       #2b353c;
+  --color-destructive: #f87171;
 
-    --color-warning-bg:     rgba(66, 48, 11, 0.95);
-    --color-warning-border: #8a6d1f;
-    --color-warning-text:   #ffd88a;
+  --color-overlay:      #5aa9d6;
 
-    --color-success-bg:  rgba(55, 168, 107, 0.16);
-    --color-success-text: #7bd8a6;
-    --color-info-bg:     rgba(55, 168, 107, 0.10);
-    --color-info-text:   #7bd8a6;
-    --color-danger-bg:   rgba(248, 113, 113, 0.12);
-    --color-danger-text: #fca5a5;
-  }
+  --color-warning-bg:     rgba(66, 48, 11, 0.95);
+  --color-warning-border: #8a6d1f;
+  --color-warning-text:   #ffd88a;
+
+  --color-success-bg:  rgba(55, 168, 107, 0.16);
+  --color-success-text: #7bd8a6;
+  --color-info-bg:     rgba(55, 168, 107, 0.10);
+  --color-info-text:   #7bd8a6;
+  --color-danger-bg:   rgba(248, 113, 113, 0.12);
+  --color-danger-text: #fca5a5;
 }
 
 /* Global Styles */

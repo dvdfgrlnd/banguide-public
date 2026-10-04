@@ -86,6 +86,22 @@
   overflow-y: auto;
 }
 
+/* The hole map is the primary content and reads best full-bleed, so drop the
+   shared .page padding/centering for this view. Body padding already reserves
+   room for the fixed bottom nav bar. */
+body.hole-page #holeContent {
+  padding: 0;
+  max-width: none;
+}
+
+body.hole-page .hole-map-shell {
+  margin-bottom: 0;
+}
+
+body.hole-page .hole-map {
+  border-radius: 0;
+}
+
 .hole-summary {
   display: flex;
   gap: var(--space-sm);
